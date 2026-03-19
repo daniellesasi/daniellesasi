@@ -49,9 +49,9 @@ void AFightingCameraActor::ApplyHitShake(float Intensity)
 {
 	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
 	{
-		PC->ClientStartCameraShake(nullptr, Intensity);
-		// For proper camera shake, create a CameraShakeBase Blueprint:
-		// Name: CS_HitShake
-		// Set it in a derived BP or call PC->ClientStartCameraShake with the class
+		// Camera shake requires a valid CameraShakeBase class.
+		// To enable: create a Blueprint CS_HitShake (parent: CameraShakeBase),
+		// add a TSubclassOf<UCameraShakeBase> property to this class, set it in BP,
+		// then call: PC->ClientStartCameraShake(ShakeClass, Intensity);
 	}
 }

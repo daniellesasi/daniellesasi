@@ -20,7 +20,7 @@ void UFightHUDWidget::NativeConstruct()
 		GM->OnRoundStarted.AddLambda([this](int32 RoundNumber)
 		{
 			ShowAnnouncement(FText::Format(
-				FTextFormat::FromString(TEXT("ROUND {0}")), FText::AsNumber(RoundNumber)), 2.0f);
+				FText::FromString(TEXT("ROUND {0}")), FText::AsNumber(RoundNumber)), 2.0f);
 		});
 
 		GM->OnMatchStateChanged.AddLambda([this](EMatchState NewState)
@@ -114,7 +114,7 @@ void UFightHUDWidget::ShowComboCounter(int32 HitCount)
 	if (ComboCounterText)
 	{
 		FText CountText = FText::Format(
-			FTextFormat::FromString(TEXT("{0} HITS")), FText::AsNumber(HitCount));
+			FText::FromString(TEXT("{0} HITS")), FText::AsNumber(HitCount));
 		ComboCounterText->SetText(CountText);
 		ComboCounterText->SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
