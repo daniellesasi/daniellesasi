@@ -326,6 +326,8 @@ protected:
 
 	// Frame counting (60fps fixed)
 	static constexpr float FrameTime = 1.0f / 60.0f;
+	float FrameAccumulator = 0.0f;
+	float StunAccumulator = 0.0f;
 	int32 CurrentAttackFrame = 0;
 	bool bHitboxActive = false;
 	bool bHasHitThisAttack = false;

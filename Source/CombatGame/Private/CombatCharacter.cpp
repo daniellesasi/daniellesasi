@@ -219,6 +219,8 @@ void ACombatCharacter::ResetForRound()
 	CurrentComboCount = 0;
 	RemainingStunFrames = 0;
 	RemainingAttackFrames = 0;
+	FrameAccumulator = 0.0f;
+	StunAccumulator = 0.0f;
 	InputBuffer.Empty();
 	bInCombo = false;
 	ComboRouteIndex = -1;
@@ -258,7 +260,6 @@ void ACombatCharacter::HandleAttackFrames(float DeltaTime)
 	if (!bIsAttacking) return;
 
 	// Frame-based timing
-	static float FrameAccumulator = 0.0f;
 	FrameAccumulator += DeltaTime;
 
 	while (FrameAccumulator >= FrameTime)
@@ -936,7 +937,6 @@ void ACombatCharacter::HandleStunTick(float DeltaTime)
 {
 	if (RemainingStunFrames <= 0) return;
 
-	static float StunAccumulator = 0.0f;
 	StunAccumulator += DeltaTime;
 
 	while (StunAccumulator >= FrameTime && RemainingStunFrames > 0)
