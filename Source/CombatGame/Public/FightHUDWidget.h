@@ -97,6 +97,18 @@ public:
 	void SetPlayerNames(const FText& P1Name, const FText& P2Name);
 
 private:
+	UFUNCTION()
+	void HandleRoundStarted(int32 RoundNumber);
+
+	UFUNCTION()
+	void HandleMatchStateChanged(EMatchState NewState);
+
+	UFUNCTION()
+	void HandleRoundEnded(int32 RoundNumber, ERoundResult Result);
+
+	UFUNCTION()
+	void HandleMatchEnded(ERoundResult FinalResult);
+
 	FTimerHandle AnnouncementTimerHandle;
 	void HideAnnouncement();
 
