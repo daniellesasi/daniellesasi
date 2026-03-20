@@ -12,11 +12,6 @@ public class CombatGameEditor : ModuleRules
 			"Engine",
 			"UnrealEd",
 			"AssetTools",
-			"KismetCompiler",
-			"Kismet",
-			"BlueprintGraph",
-			"UMGEditor",
-			"Blutility",
 			"CombatGame"
 		});
 
@@ -26,7 +21,8 @@ public class CombatGameEditor : ModuleRules
 			"EditorScriptingUtilities",
 			"EnhancedInput",
 			"InputCore",
-			"UMG"
+			"UMG",
+			"UMGEditor"
 		});
 	}
 }

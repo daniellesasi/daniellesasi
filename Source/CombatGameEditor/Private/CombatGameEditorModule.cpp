@@ -11,7 +11,6 @@
 #include "Factories/DataTableFactory.h"
 #include "EditorAssetLibrary.h"
 #include "FileHelpers.h"
-#include "KismetEditorUtilities.h"
 #include "WidgetBlueprint.h"
 #include "WidgetBlueprintFactory.h"
 #include "Engine/DataTable.h"
