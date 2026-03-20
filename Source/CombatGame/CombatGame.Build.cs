@@ -21,9 +21,5 @@ public class CombatGame : ModuleRules
 			"Niagara"
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] {
-			"GameplayAbilities",
-			"GameplayTags"
-		});
 	}
 }

@@ -17,43 +17,10 @@ void UFightHUDWidget::NativeConstruct()
 		GM->OnTimerUpdated.AddDynamic(this, &UFightHUDWidget::UpdateTimer);
 		GM->OnFighterDamaged.AddDynamic(this, &UFightHUDWidget::UpdateHealthBar);
 
-		GM->OnRoundStarted.AddLambda([this](int32 RoundNumber)
-		{
-			ShowAnnouncement(FText::Format(
-				FText::FromString(TEXT("ROUND {0}")), FText::AsNumber(RoundNumber)), 2.0f);
-		});
-
-		GM->OnMatchStateChanged.AddLambda([this](EMatchState NewState)
-		{
-			if (NewState == EMatchState::Fighting)
-			{
-				ShowAnnouncement(FText::FromString(TEXT("FIGHT!")), 1.5f);
-			}
-			else if (NewState == EMatchState::RoundEnd)
-			{
-				ShowAnnouncement(FText::FromString(TEXT("K.O.")), 2.0f);
-			}
-		});
-
-		GM->OnRoundEnded.AddLambda([this](int32 RoundNumber, ERoundResult Result)
-		{
-			if (ACombatGameMode* GM2 = Cast<ACombatGameMode>(UGameplayStatics::GetGameMode(this)))
-			{
-				UpdateRoundIndicators(GM2->Player1RoundWins, GM2->Player2RoundWins);
-			}
-		});
-
-		GM->OnMatchEnded.AddLambda([this](ERoundResult Result)
-		{
-			FText WinText;
-			if (Result == ERoundResult::Player1Win)
-				WinText = FText::FromString(TEXT("PLAYER 1 WINS"));
-			else if (Result == ERoundResult::Player2Win)
-				WinText = FText::FromString(TEXT("PLAYER 2 WINS"));
-			else
-				WinText = FText::FromString(TEXT("DRAW"));
-			ShowAnnouncement(WinText, 5.0f);
-		});
+		GM->OnRoundStarted.AddDynamic(this, &UFightHUDWidget::HandleRoundStarted);
+		GM->OnMatchStateChanged.AddDynamic(this, &UFightHUDWidget::HandleMatchStateChanged);
+		GM->OnRoundEnded.AddDynamic(this, &UFightHUDWidget::HandleRoundEnded);
+		GM->OnMatchEnded.AddDynamic(this, &UFightHUDWidget::HandleMatchEnded);
 	}
 
 	// Initialize
@@ -153,4 +120,42 @@ void UFightHUDWidget::SetPlayerNames(const FText& P1Name, const FText& P2Name)
 {
 	if (P1NameText) P1NameText->SetText(P1Name);
 	if (P2NameText) P2NameText->SetText(P2Name);
+}
+
+void UFightHUDWidget::HandleRoundStarted(int32 RoundNumber)
+{
+	ShowAnnouncement(FText::Format(
+		FText::FromString(TEXT("ROUND {0}")), FText::AsNumber(RoundNumber)), 2.0f);
+}
+
+void UFightHUDWidget::HandleMatchStateChanged(EMatchState NewState)
+{
+	if (NewState == EMatchState::Fighting)
+	{
+		ShowAnnouncement(FText::FromString(TEXT("FIGHT!")), 1.5f);
+	}
+	else if (NewState == EMatchState::RoundEnd)
+	{
+		ShowAnnouncement(FText::FromString(TEXT("K.O.")), 2.0f);
+	}
+}
+
+void UFightHUDWidget::HandleRoundEnded(int32 RoundNumber, ERoundResult Result)
+{
+	if (ACombatGameMode* GM = Cast<ACombatGameMode>(UGameplayStatics::GetGameMode(this)))
+	{
+		UpdateRoundIndicators(GM->Player1RoundWins, GM->Player2RoundWins);
+	}
+}
+
+void UFightHUDWidget::HandleMatchEnded(ERoundResult FinalResult)
+{
+	FText WinText;
+	if (FinalResult == ERoundResult::Player1Win)
+		WinText = FText::FromString(TEXT("PLAYER 1 WINS"));
+	else if (FinalResult == ERoundResult::Player2Win)
+		WinText = FText::FromString(TEXT("PLAYER 2 WINS"));
+	else
+		WinText = FText::FromString(TEXT("DRAW"));
+	ShowAnnouncement(WinText, 5.0f);
 }
