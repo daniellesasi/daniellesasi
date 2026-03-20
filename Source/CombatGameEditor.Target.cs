@@ -8,5 +8,6 @@ public class CombatGameEditorTarget : TargetRules
 		DefaultBuildSettings = BuildSettingsVersion.V6;
 		IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
 		ExtraModuleNames.Add("CombatGame");
+		ExtraModuleNames.Add("CombatGameEditor");
 	}
 }
