@@ -21,7 +21,7 @@ class UNiagaraSystem;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHealthChanged, float, NewHealth, float, MaxHealth);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFighterStateChanged, EFighterState, NewState);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttackLanded, const FAttackData&, Attack);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttackLanded, FAttackData, Attack);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnComboStarted);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnComboEnded, int32, HitCount);
 

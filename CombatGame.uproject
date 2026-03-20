@@ -20,11 +20,7 @@
 			"Name": "EnhancedInput",
 			"Enabled": true
 		},
-		{
-			"Name": "GameplayAbilities",
-			"Enabled": true
-		},
-		{
+{
 			"Name": "Niagara",
 			"Enabled": true
 		}
