@@ -104,10 +104,21 @@ def create_level(path, name):
         return None
 
     world = None
+
+    # UE5.7+: Use LevelEditorSubsystem (non-deprecated)
     try:
-        world = unreal.EditorLevelLibrary.new_level(full_path)
+        level_subsystem = unreal.get_editor_subsystem(unreal.LevelEditorSubsystem)
+        if level_subsystem:
+            world = level_subsystem.new_level(full_path)
     except Exception:
         pass
+
+    # Fallback: deprecated EditorLevelLibrary (still works with a warning)
+    if not world:
+        try:
+            world = unreal.EditorLevelLibrary.new_level(full_path)
+        except Exception:
+            pass
 
     if not world:
         try:
@@ -205,6 +216,22 @@ def create_input_mapping_context(path, name):
     return asset
 
 
+def get_skeleton_from_mesh(mesh):
+    """Extract skeleton from a skeletal mesh asset."""
+    skeleton = None
+    if hasattr(mesh, 'skeleton'):
+        try:
+            skeleton = mesh.get_editor_property("skeleton")
+        except Exception:
+            pass
+    if skeleton is None and hasattr(mesh, 'get_skeleton'):
+        try:
+            skeleton = mesh.get_skeleton()
+        except Exception:
+            pass
+    return skeleton
+
+
 def find_mannequin_skeleton():
     """Find the UE5 Third Person template mannequin skeleton."""
     # UE5.7 Third Person template stores mannequins in these locations
@@ -214,45 +241,64 @@ def find_mannequin_skeleton():
         "/Game/Characters/Mannequins/Meshes/SKM_Quinn",
         # UE5.0-5.3 paths
         "/Game/Characters/Mannequin/Mesh/SK_Mannequin",
-        # Alternative UE5.7 paths
+        # Alternative UE5.7 paths (various template layouts)
         "/Game/ThirdPerson/Characters/Mannequins/Meshes/SKM_Manny",
         "/Game/ThirdPerson/Mannequins/Meshes/SKM_Manny",
+        # Engine content mannequins
+        "/Engine/Mannequin/Character/Mesh/SK_Mannequin",
     ]
 
     for mesh_path in search_paths:
         mesh = unreal.load_asset(mesh_path)
         if mesh:
-            # Get skeleton from skeletal mesh
-            skeleton = None
-            if hasattr(mesh, 'skeleton'):
-                skeleton = mesh.get_editor_property("skeleton")
-            elif hasattr(mesh, 'get_skeleton'):
-                skeleton = mesh.get_skeleton()
+            skeleton = get_skeleton_from_mesh(mesh)
             if skeleton:
                 unreal.log(f"  Found mannequin skeleton from: {mesh_path}")
                 return skeleton, mesh_path
 
-    # Broader search: scan Content for any skeletal mesh
+    # Broader search: scan Content for any skeletal mesh using Asset Registry
     unreal.log_warning("  Mannequin not found at known paths, searching...")
     try:
         ar = unreal.AssetRegistryHelpers.get_asset_registry()
-        # Search for SkeletalMesh assets
-        skeletal_meshes = ar.get_assets_by_class("SkeletalMesh", True)
-        if not skeletal_meshes:
-            # UE5.7 may use a different class name
-            skeletal_meshes = ar.get_assets_by_class("/Script/Engine.SkeletalMesh", True)
+        skeletal_meshes = None
 
-        for asset_data in skeletal_meshes:
-            asset_name = str(asset_data.asset_name)
-            if "manny" in asset_name.lower() or "quinn" in asset_name.lower() or "mannequin" in asset_name.lower():
-                mesh = asset_data.get_asset()
-                if mesh:
-                    skeleton = None
-                    if hasattr(mesh, 'skeleton'):
-                        skeleton = mesh.get_editor_property("skeleton")
-                    if skeleton:
-                        unreal.log(f"  Found mannequin via search: {asset_data.package_name}")
-                        return skeleton, str(asset_data.package_name)
+        # UE5.7+ requires TopLevelAssetPath instead of string for get_assets_by_class
+        if hasattr(unreal, 'TopLevelAssetPath'):
+            try:
+                class_path = unreal.TopLevelAssetPath("/Script/Engine", "SkeletalMesh")
+                skeletal_meshes = ar.get_assets_by_class(class_path, True)
+            except Exception:
+                pass
+
+        # Fallback: use ARFilter for broader compatibility
+        if not skeletal_meshes:
+            try:
+                ar_filter = unreal.ARFilter()
+                ar_filter.class_names = ["SkeletalMesh"]
+                skeletal_meshes = ar.get_assets(ar_filter)
+            except Exception:
+                pass
+
+        # Last resort: use get_all_assets and filter
+        if not skeletal_meshes:
+            try:
+                all_assets = ar.get_all_assets(True)
+                skeletal_meshes = [a for a in all_assets
+                                   if "SkeletalMesh" in str(a.asset_class_path) or
+                                      "SkeletalMesh" in str(getattr(a, 'asset_class', ''))]
+            except Exception:
+                pass
+
+        if skeletal_meshes:
+            for asset_data in skeletal_meshes:
+                asset_name = str(asset_data.asset_name)
+                if "manny" in asset_name.lower() or "quinn" in asset_name.lower() or "mannequin" in asset_name.lower():
+                    mesh = asset_data.get_asset()
+                    if mesh:
+                        skeleton = get_skeleton_from_mesh(mesh)
+                        if skeleton:
+                            unreal.log(f"  Found mannequin via search: {asset_data.package_name}")
+                            return skeleton, str(asset_data.package_name)
     except Exception as e:
         unreal.log_warning(f"  Skeleton search error: {e}")
 
