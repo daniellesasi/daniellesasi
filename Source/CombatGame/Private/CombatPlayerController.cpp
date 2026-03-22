@@ -7,11 +7,17 @@
 
 ACombatPlayerController::ACombatPlayerController()
 {
+	// Fighting game: disable mouse/stick look so input goes to character, not camera
+	bAutoManageActiveCameraTarget = false;
 }
 
 void ACombatPlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
+
+	// Disable default mouse look — fighting game camera is fixed
+	bShowMouseCursor = false;
+	SetIgnoreLookInput(true);
 }
 
 void ACombatPlayerController::OnPossess(APawn* InPawn)

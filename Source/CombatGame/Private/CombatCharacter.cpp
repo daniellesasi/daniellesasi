@@ -143,6 +143,11 @@ void ACombatCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
+	// Must load input actions here, not just in BeginPlay, because
+	// SetupPlayerInputComponent runs during Possess() which can happen
+	// before BeginPlay when the actor is spawned inside another BeginPlay
+	LoadInputActionsIfNeeded();
+
 	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
 	if (!EIC) return;
 
@@ -704,7 +709,10 @@ void ACombatCharacter::HandleMove(const FInputActionValue& Value)
 
 		if (CurrentState != EFighterState::Dashing && CurrentState != EFighterState::BackDashing)
 		{
-			AddMovementInput(MoveDir, MoveSpeed * GetWorld()->GetDeltaSeconds());
+			// Set the walk speed based on direction, then use scale 1.0
+			// (AddMovementInput ScaleValue is 0-1, actual speed comes from MaxWalkSpeed)
+			GetCharacterMovement()->MaxWalkSpeed = MoveSpeed;
+			AddMovementInput(MoveDir, 1.0f);
 			if (!bIsCrouching && CurrentState != EFighterState::Jumping)
 			{
 				SetFighterState(EFighterState::Walking);
