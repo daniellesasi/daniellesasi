@@ -20,6 +20,19 @@ void ACombatPlayerController::SetupInputComponent()
 	SetIgnoreLookInput(true);
 }
 
+void ACombatPlayerController::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// The Enhanced Input subsystem is guaranteed ready by BeginPlay.
+	// OnPossess may have been called earlier (during SpawnFighters) when the
+	// subsystem wasn't ready yet, so retry adding the mapping context here.
+	if (!bMappingContextAdded && GetPawn())
+	{
+		AddFighterMappingContext();
+	}
+}
+
 void ACombatPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
@@ -28,6 +41,7 @@ void ACombatPlayerController::OnPossess(APawn* InPawn)
 
 void ACombatPlayerController::OnUnPossess()
 {
+	bMappingContextAdded = false;
 	RemoveFighterMappingContext();
 	Super::OnUnPossess();
 }
@@ -37,23 +51,12 @@ void ACombatPlayerController::AddFighterMappingContext()
 	// First try the mapping context set on the controller itself
 	UInputMappingContext* IMC = FighterMappingContext;
 
-	// If not set on the controller, grab it from the possessed fighter
+	// Load IMC_Fighter by path as fallback
 	if (!IMC)
 	{
-		if (ACombatCharacter* Fighter = Cast<ACombatCharacter>(GetPawn()))
-		{
-			// Access the character's mapping context via its public getter or UPROPERTY
-			// The character stores it as FighterMappingContext (EditDefaultsOnly)
-			// We need to load it by asset path as fallback
-		}
-
-		// Load IMC_Fighter directly as ultimate fallback
-		if (!IMC)
-		{
-			IMC = Cast<UInputMappingContext>(
-				StaticLoadObject(UInputMappingContext::StaticClass(), nullptr,
-					TEXT("/Game/Input/IMC_Fighter.IMC_Fighter")));
-		}
+		IMC = Cast<UInputMappingContext>(
+			StaticLoadObject(UInputMappingContext::StaticClass(), nullptr,
+				TEXT("/Game/Input/IMC_Fighter.IMC_Fighter")));
 	}
 
 	if (!IMC)
@@ -67,7 +70,12 @@ void ACombatPlayerController::AddFighterMappingContext()
 	{
 		Subsystem->ClearAllMappings();
 		Subsystem->AddMappingContext(IMC, 0);
-		UE_LOG(LogCombatGame, Log, TEXT("CombatPlayerController: Added fighter mapping context"));
+		bMappingContextAdded = true;
+		UE_LOG(LogCombatGame, Log, TEXT("CombatPlayerController: Added fighter mapping context successfully"));
+	}
+	else
+	{
+		UE_LOG(LogCombatGame, Warning, TEXT("CombatPlayerController: EnhancedInput subsystem not ready yet"));
 	}
 }
 

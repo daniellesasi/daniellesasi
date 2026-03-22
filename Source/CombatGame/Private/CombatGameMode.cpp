@@ -52,8 +52,15 @@ void ACombatGameMode::Tick(float DeltaTime)
 
 void ACombatGameMode::RestartPlayer(AController* NewPlayer)
 {
-	// Do NOT call Super — we don't want UE to auto-spawn a default pawn.
-	// Fighters are spawned manually in SpawnFighters().
+	// Skip Super to prevent auto-spawning a default pawn.
+	// We manually spawn fighters in SpawnFighters() and call Possess there.
+	// But we still need to let the controller finish its setup, so if it
+	// already has a pawn (from our manual Possess), just return cleanly.
+	if (NewPlayer && NewPlayer->GetPawn())
+	{
+		return;
+	}
+	// If no pawn yet (called before SpawnFighters), just skip — we'll possess later.
 }
 
 UClass* ACombatGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)

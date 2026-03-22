@@ -15,6 +15,8 @@ class COMBATGAME_API ACombatPlayerController : public APlayerController
 public:
 	ACombatPlayerController();
 
+	virtual void BeginPlay() override;
+
 protected:
 	virtual void OnPossess(APawn* InPawn) override;
 	virtual void OnUnPossess() override;
@@ -27,4 +29,5 @@ protected:
 private:
 	void AddFighterMappingContext();
 	void RemoveFighterMappingContext();
+	bool bMappingContextAdded = false;
 };
