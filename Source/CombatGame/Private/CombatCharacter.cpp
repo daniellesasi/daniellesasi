@@ -149,7 +149,17 @@ void ACombatCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	LoadInputActionsIfNeeded();
 
 	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
-	if (!EIC) return;
+	if (!EIC)
+	{
+		UE_LOG(LogCombatGame, Error, TEXT("SetupPlayerInputComponent: NOT an EnhancedInputComponent!"));
+		return;
+	}
+
+	UE_LOG(LogCombatGame, Warning, TEXT("SetupPlayerInputComponent: MoveAction=%s, JumpAction=%s, CrouchAction=%s, SidestepAction=%s"),
+		MoveAction ? *MoveAction->GetName() : TEXT("NULL"),
+		JumpAction ? *JumpAction->GetName() : TEXT("NULL"),
+		CrouchAction ? *CrouchAction->GetName() : TEXT("NULL"),
+		SidestepAction ? *SidestepAction->GetName() : TEXT("NULL"));
 
 	if (MoveAction)
 	{
@@ -247,6 +257,7 @@ void ACombatCharacter::SetFighterState(EFighterState NewState)
 void ACombatCharacter::SetFighterInputEnabled(bool bEnabled)
 {
 	bInputEnabled = bEnabled;
+	UE_LOG(LogCombatGame, Warning, TEXT("Fighter P%d: Input %s"), PlayerIndex, bEnabled ? TEXT("ENABLED") : TEXT("DISABLED"));
 }
 
 void ACombatCharacter::ResetForRound()
@@ -662,6 +673,9 @@ void ACombatCharacter::UpdateFacing()
 
 void ACombatCharacter::HandleMove(const FInputActionValue& Value)
 {
+	FVector2D DebugInput = Value.Get<FVector2D>();
+	UE_LOG(LogCombatGame, Log, TEXT("HandleMove called! Input=(%f,%f) bInputEnabled=%d State=%d"),
+		DebugInput.X, DebugInput.Y, bInputEnabled, (int32)CurrentState);
 	if (!bInputEnabled) return;
 	if (CurrentState == EFighterState::HitStun || CurrentState == EFighterState::BlockStun ||
 		CurrentState == EFighterState::KnockedDown || CurrentState == EFighterState::Launched) return;
