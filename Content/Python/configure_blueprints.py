@@ -120,6 +120,17 @@ hud_class = load_bp_class(hud_path)
 if hud_class:
     set_bp_default(gm_path, "hud_class", hud_class, "BP_CombatHUD")
 
+# Set PlayerController Class = BP_CombatPlayerController
+pc_path = "/Game/Blueprints/BP_CombatPlayerController"
+pc_class = load_bp_class(pc_path)
+if pc_class:
+    set_bp_default(gm_path, "player_controller_class", pc_class, "BP_CombatPlayerController")
+
+# Wire IMC_Fighter into BP_CombatPlayerController
+imc_for_pc = unreal.load_asset(f"/Game/Input/IMC_Fighter")
+if imc_for_pc:
+    set_bp_default(pc_path, "FighterMappingContext", imc_for_pc, "IMC_Fighter on PlayerController")
+
 # ============================================================================
 # 2. CONFIGURE BP_CombatHUD
 # ============================================================================

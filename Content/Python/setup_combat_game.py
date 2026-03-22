@@ -294,6 +294,7 @@ class_map = {
     "CharacterSelectWidget": "/Script/CombatGame.CharacterSelectWidget",
     "FightHUDWidget":        "/Script/CombatGame.FightHUDWidget",
     "PauseMenuWidget":       "/Script/CombatGame.PauseMenuWidget",
+    "CombatPlayerController": "/Script/CombatGame.CombatPlayerController",
 }
 
 loaded_classes = {}
@@ -387,6 +388,10 @@ if loaded_classes["FightingCameraActor"]:
 bp_ai = None
 if loaded_classes["FighterAIController"]:
     bp_ai = create_blueprint("/Game/Blueprints", "BP_FighterAI", loaded_classes["FighterAIController"])
+
+bp_player_controller = None
+if loaded_classes["CombatPlayerController"]:
+    bp_player_controller = create_blueprint("/Game/Blueprints", "BP_CombatPlayerController", loaded_classes["CombatPlayerController"])
 
 # Fighter BP (test character - will use mannequin as placeholder)
 bp_fighter = None
