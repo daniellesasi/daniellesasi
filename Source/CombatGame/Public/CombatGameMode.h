@@ -24,6 +24,10 @@ public:
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 
+	// Prevent UE from auto-spawning a default pawn — we spawn fighters manually
+	virtual void RestartPlayer(AController* NewPlayer) override;
+	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
+
 	// Current match state
 	UPROPERTY(BlueprintReadOnly, Category = "Match")
 	EMatchState CurrentMatchState;
