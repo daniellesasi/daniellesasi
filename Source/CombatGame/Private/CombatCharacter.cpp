@@ -68,14 +68,25 @@ void ACombatCharacter::BeginPlay()
 	// Add input mapping context (fallback if controller didn't set it)
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
+		UE_LOG(LogCombatGame, Warning, TEXT("CombatCharacter::BeginPlay - Controller=%s, LocalPlayer=%s"),
+			*PC->GetName(), PC->GetLocalPlayer() ? TEXT("Valid") : TEXT("NULL"));
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
 			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
 		{
 			if (FighterMappingContext && !Subsystem->HasMappingContext(FighterMappingContext))
 			{
 				Subsystem->AddMappingContext(FighterMappingContext, 0);
+				UE_LOG(LogCombatGame, Warning, TEXT("CombatCharacter::BeginPlay - Added mapping context!"));
 			}
 		}
+		else
+		{
+			UE_LOG(LogCombatGame, Warning, TEXT("CombatCharacter::BeginPlay - No EnhancedInput subsystem!"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogCombatGame, Warning, TEXT("CombatCharacter::BeginPlay - No PlayerController!"));
 	}
 }
 
@@ -179,6 +190,27 @@ void ACombatCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	// SetupPlayerInputComponent runs during Possess() which can happen
 	// before BeginPlay when the actor is spawned inside another BeginPlay
 	LoadInputActionsIfNeeded();
+
+	// Force-add mapping context here — this is the most reliable place since
+	// the input component is guaranteed to exist and be associated with a controller
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
+			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
+		{
+			if (FighterMappingContext)
+			{
+				Subsystem->ClearAllMappings();
+				Subsystem->AddMappingContext(FighterMappingContext, 0);
+				UE_LOG(LogCombatGame, Warning, TEXT("SetupPlayerInputComponent: ADDED mapping context %s"), *FighterMappingContext->GetName());
+			}
+		}
+		else
+		{
+			UE_LOG(LogCombatGame, Warning, TEXT("SetupPlayerInputComponent: No EnhancedInput subsystem! LocalPlayer=%s"),
+				PC->GetLocalPlayer() ? TEXT("Valid") : TEXT("NULL"));
+		}
+	}
 
 	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
 	if (!EIC)
