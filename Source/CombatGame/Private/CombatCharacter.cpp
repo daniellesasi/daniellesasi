@@ -81,33 +81,65 @@ void ACombatCharacter::BeginPlay()
 
 void ACombatCharacter::LoadInputActionsIfNeeded()
 {
-	auto TryLoad = [](UInputAction*& Action, const TCHAR* Path)
+	// Try loading from multiple possible paths — the user may have created
+	// assets in /Game/Input/ or /Game/Input/Actions/
+	auto TryLoad = [](UInputAction*& Action, const TCHAR* Name)
 	{
-		if (!Action)
+		if (Action) return;
+
+		// Try /Game/Input/Actions/ first (subfolder), then /Game/Input/ (root)
+		FString Paths[] = {
+			FString::Printf(TEXT("/Game/Input/Actions/%s.%s"), Name, Name),
+			FString::Printf(TEXT("/Game/Input/%s.%s"), Name, Name),
+		};
+
+		for (const FString& Path : Paths)
 		{
-			Action = Cast<UInputAction>(StaticLoadObject(UInputAction::StaticClass(), nullptr, Path));
+			Action = Cast<UInputAction>(StaticLoadObject(UInputAction::StaticClass(), nullptr, *Path));
+			if (Action)
+			{
+				UE_LOG(LogCombatGame, Log, TEXT("Loaded input action: %s from %s"), Name, *Path);
+				return;
+			}
 		}
+		UE_LOG(LogCombatGame, Warning, TEXT("Failed to load input action: %s"), Name);
 	};
 
 	if (!FighterMappingContext)
 	{
-		FighterMappingContext = Cast<UInputMappingContext>(
-			StaticLoadObject(UInputMappingContext::StaticClass(), nullptr,
-				TEXT("/Game/Input/IMC_Fighter.IMC_Fighter")));
+		// Try multiple paths for the mapping context too
+		const TCHAR* IMCPaths[] = {
+			TEXT("/Game/Input/IMC_Fighter.IMC_Fighter"),
+			TEXT("/Game/Input/Actions/IMC_Fighter.IMC_Fighter"),
+		};
+		for (const TCHAR* Path : IMCPaths)
+		{
+			FighterMappingContext = Cast<UInputMappingContext>(
+				StaticLoadObject(UInputMappingContext::StaticClass(), nullptr, Path));
+			if (FighterMappingContext) break;
+		}
 	}
 
-	TryLoad(MoveAction, TEXT("/Game/Input/IA_Move.IA_Move"));
-	TryLoad(JumpAction, TEXT("/Game/Input/IA_Jump.IA_Jump"));
-	TryLoad(CrouchAction, TEXT("/Game/Input/IA_Crouch.IA_Crouch"));
-	TryLoad(BlockAction, TEXT("/Game/Input/IA_Block.IA_Block"));
-	TryLoad(LeftPunchAction, TEXT("/Game/Input/IA_LeftPunch.IA_LeftPunch"));
-	TryLoad(RightPunchAction, TEXT("/Game/Input/IA_RightPunch.IA_RightPunch"));
-	TryLoad(LeftKickAction, TEXT("/Game/Input/IA_LeftKick.IA_LeftKick"));
-	TryLoad(RightKickAction, TEXT("/Game/Input/IA_RightKick.IA_RightKick"));
-	TryLoad(SidestepAction, TEXT("/Game/Input/IA_Sidestep.IA_Sidestep"));
+	TryLoad(MoveAction, TEXT("IA_Move"));
+	TryLoad(JumpAction, TEXT("IA_Jump"));
+	TryLoad(CrouchAction, TEXT("IA_Crouch"));
+	TryLoad(BlockAction, TEXT("IA_Block"));
+	TryLoad(LeftPunchAction, TEXT("IA_LeftPunch"));
+	TryLoad(RightPunchAction, TEXT("IA_RightPunch"));
+	TryLoad(LeftKickAction, TEXT("IA_LeftKick"));
+	TryLoad(RightKickAction, TEXT("IA_RightKick"));
+	TryLoad(SidestepAction, TEXT("IA_Sidestep"));
 
-	UE_LOG(LogCombatGame, Log, TEXT("CombatCharacter: MoveAction=%s, IMC=%s"),
+	UE_LOG(LogCombatGame, Warning, TEXT("CombatCharacter Input Load: Move=%s Jump=%s Crouch=%s Block=%s LP=%s RP=%s LK=%s RK=%s SS=%s IMC=%s"),
 		MoveAction ? TEXT("OK") : TEXT("NULL"),
+		JumpAction ? TEXT("OK") : TEXT("NULL"),
+		CrouchAction ? TEXT("OK") : TEXT("NULL"),
+		BlockAction ? TEXT("OK") : TEXT("NULL"),
+		LeftPunchAction ? TEXT("OK") : TEXT("NULL"),
+		RightPunchAction ? TEXT("OK") : TEXT("NULL"),
+		LeftKickAction ? TEXT("OK") : TEXT("NULL"),
+		RightKickAction ? TEXT("OK") : TEXT("NULL"),
+		SidestepAction ? TEXT("OK") : TEXT("NULL"),
 		FighterMappingContext ? TEXT("OK") : TEXT("NULL"));
 }
 
