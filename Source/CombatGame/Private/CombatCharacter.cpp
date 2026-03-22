@@ -8,6 +8,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputAction.h"
 #include "InputMappingContext.h"
+#include "InputModifiers.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
@@ -191,19 +192,106 @@ void ACombatCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	// before BeginPlay when the actor is spawned inside another BeginPlay
 	LoadInputActionsIfNeeded();
 
-	// Force-add mapping context here — this is the most reliable place since
-	// the input component is guaranteed to exist and be associated with a controller
+	// Build a runtime IMC with correct key→action mappings.
+	// This guarantees correct bindings regardless of the asset's state.
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
 			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
 		{
-			if (FighterMappingContext)
+			// Create a transient IMC at runtime
+			UInputMappingContext* RuntimeIMC = NewObject<UInputMappingContext>(this, TEXT("RuntimeIMC_Fighter"));
+
+			// Helper: map a key to an action with optional modifiers
+			auto MapKey = [&](UInputAction* Action, FKey Key,
+				bool bNegate = false, bool bSwizzle = false)
 			{
-				Subsystem->ClearAllMappings();
-				Subsystem->AddMappingContext(FighterMappingContext, 0);
-				UE_LOG(LogCombatGame, Warning, TEXT("SetupPlayerInputComponent: ADDED mapping context %s"), *FighterMappingContext->GetName());
+				if (!Action) return;
+				FEnhancedActionKeyMapping& Mapping = RuntimeIMC->MapKey(Action, Key);
+				if (bSwizzle)
+				{
+					UInputModifierSwizzleAxis* Swizzle = NewObject<UInputModifierSwizzleAxis>(RuntimeIMC);
+					Swizzle->Order = EInputAxisSwizzle::YXZ;
+					Mapping.Modifiers.Add(Swizzle);
+				}
+				if (bNegate)
+				{
+					UInputModifierNegate* Negate = NewObject<UInputModifierNegate>(RuntimeIMC);
+					Mapping.Modifiers.Add(Negate);
+				}
+			};
+
+			// Ensure IA_Move is Axis2D
+			if (MoveAction)
+			{
+				MoveAction->ValueType = EInputActionValueType::Axis2D;
 			}
+
+			// Arrow keys → IA_Move (Vector2D)
+			MapKey(MoveAction, EKeys::Right);                        // X+
+			MapKey(MoveAction, EKeys::Left, true, false);            // X- (Negate)
+			MapKey(MoveAction, EKeys::Up, false, true);              // Y+ (Swizzle)
+			MapKey(MoveAction, EKeys::Down, true, true);             // Y- (Swizzle+Negate)
+
+			// Also support WASD
+			MapKey(MoveAction, EKeys::D);                            // X+
+			MapKey(MoveAction, EKeys::A, true, false);               // X-
+			MapKey(MoveAction, EKeys::W, false, true);               // Y+
+			MapKey(MoveAction, EKeys::S, true, true);                // Y-
+
+			// Jump
+			if (JumpAction)
+			{
+				JumpAction->ValueType = EInputActionValueType::Boolean;
+				MapKey(JumpAction, EKeys::SpaceBar);
+			}
+
+			// Crouch
+			if (CrouchAction)
+			{
+				CrouchAction->ValueType = EInputActionValueType::Boolean;
+				MapKey(CrouchAction, EKeys::LeftControl);
+			}
+
+			// Block
+			if (BlockAction)
+			{
+				BlockAction->ValueType = EInputActionValueType::Boolean;
+				MapKey(BlockAction, EKeys::LeftShift);
+			}
+
+			// Attacks
+			if (LeftPunchAction)
+			{
+				LeftPunchAction->ValueType = EInputActionValueType::Boolean;
+				MapKey(LeftPunchAction, EKeys::U);
+			}
+			if (RightPunchAction)
+			{
+				RightPunchAction->ValueType = EInputActionValueType::Boolean;
+				MapKey(RightPunchAction, EKeys::I);
+			}
+			if (LeftKickAction)
+			{
+				LeftKickAction->ValueType = EInputActionValueType::Boolean;
+				MapKey(LeftKickAction, EKeys::J);
+			}
+			if (RightKickAction)
+			{
+				RightKickAction->ValueType = EInputActionValueType::Boolean;
+				MapKey(RightKickAction, EKeys::K);
+			}
+
+			// Sidestep
+			if (SidestepAction)
+			{
+				SidestepAction->ValueType = EInputActionValueType::Boolean;
+				MapKey(SidestepAction, EKeys::Q);
+			}
+
+			Subsystem->ClearAllMappings();
+			Subsystem->AddMappingContext(RuntimeIMC, 0);
+			UE_LOG(LogCombatGame, Warning, TEXT("SetupPlayerInputComponent: Built runtime IMC with all key mappings"));
 		}
 		else
 		{
