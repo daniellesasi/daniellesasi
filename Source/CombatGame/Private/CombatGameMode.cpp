@@ -61,11 +61,17 @@ void ACombatGameMode::SpawnFighters()
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
-	// Use character class from selection, or default
+	// Use character class from selection, or try BP_TestFighter, or fall back to C++
 	UClass* P1Class = nullptr;
 	if (GI && GI->Player1Character.FighterClass.IsValid())
 	{
 		P1Class = GI->Player1Character.FighterClass.LoadSynchronous();
+	}
+	if (!P1Class)
+	{
+		// Try loading the Blueprint version first (has input actions configured)
+		P1Class = StaticLoadClass(ACombatCharacter::StaticClass(),
+			nullptr, TEXT("/Game/Characters/TestFighter/BP_TestFighter.BP_TestFighter_C"));
 	}
 	if (!P1Class)
 	{
@@ -98,6 +104,11 @@ void ACombatGameMode::SpawnFighters()
 	if (GI && GI->Player2Character.FighterClass.IsValid())
 	{
 		P2Class = GI->Player2Character.FighterClass.LoadSynchronous();
+	}
+	if (!P2Class)
+	{
+		P2Class = StaticLoadClass(ACombatCharacter::StaticClass(),
+			nullptr, TEXT("/Game/Characters/TestFighter/BP_TestFighter.BP_TestFighter_C"));
 	}
 	if (!P2Class)
 	{
