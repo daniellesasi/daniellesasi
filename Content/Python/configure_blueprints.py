@@ -349,17 +349,14 @@ else:
 log_section("Populating Widget Blueprints with UI Elements")
 
 
-def populate_widget_blueprint(wb_path, widget_specs):
-    """
-    Auto-add required widgets to a Widget Blueprint.
-    widget_specs: list of (name, widget_class) tuples
-    """
+def get_or_create_root(wb_path):
+    """Load a widget blueprint and ensure it has a root CanvasPanel."""
     wb = unreal.load_asset(wb_path)
     if not wb:
         msg = f"  Could not load widget: {wb_path}"
         unreal.log_warning(msg)
         WARNINGS.append(msg)
-        return
+        return None, None, None
 
     try:
         widget_tree = wb.get_editor_property("widget_tree")
@@ -370,9 +367,8 @@ def populate_widget_blueprint(wb_path, widget_specs):
         msg = f"  Could not access widget tree for: {wb_path}"
         unreal.log_warning(msg)
         WARNINGS.append(msg)
-        return
+        return None, None, None
 
-    # Check if root widget exists, create CanvasPanel if not
     root = None
     try:
         root = widget_tree.get_editor_property("root_widget")
@@ -388,85 +384,378 @@ def populate_widget_blueprint(wb_path, widget_specs):
             msg = f"  Could not create root widget for {wb_path}: {e}"
             unreal.log_warning(msg)
             WARNINGS.append(msg)
-            return
+            return None, None, None
 
-    added_count = 0
-    for widget_name, widget_class in widget_specs:
-        try:
-            # Check if widget already exists
-            existing = widget_tree.find_widget(widget_name) if hasattr(widget_tree, 'find_widget') else None
-            if existing:
-                continue
-
-            widget = widget_tree.construct_widget(widget_class, widget_name)
-            if widget and root:
-                # Add to canvas panel
-                if hasattr(root, 'add_child_to_canvas'):
-                    slot = root.add_child_to_canvas(widget)
-                    if slot:
-                        added_count += 1
-                elif hasattr(root, 'add_child'):
-                    root.add_child(widget)
-                    added_count += 1
-        except Exception as e:
-            msg = f"  Could not add {widget_name}: {e}"
-            unreal.log_warning(msg)
-            WARNINGS.append(msg)
-
-    if added_count > 0:
-        # Mark the blueprint as modified so it recompiles
-        try:
-            unreal.KismetSystemLibrary.flush_persistent_debug_lines(None)
-        except Exception:
-            pass
-        unreal.log(f"  Added {added_count} widgets to {wb_path.split('/')[-1]}")
-        SUCCESS.append(f"{wb_path}: {added_count} widgets added")
-    else:
-        unreal.log(f"  {wb_path.split('/')[-1]}: widgets already present or no changes needed")
+    return wb, widget_tree, root
 
 
-# WBP_MainMenu: PlayButton, OptionsButton, QuitButton + optional TitleText
-populate_widget_blueprint("/Game/UI/WBP_MainMenu", [
-    ("PlayButton", unreal.Button),
-    ("OptionsButton", unreal.Button),
-    ("QuitButton", unreal.Button),
-    ("TitleText", unreal.TextBlock),
-])
+def add_widget(widget_tree, root, name, widget_class, pos_x=0, pos_y=0, size_x=100, size_y=40,
+               anchor_min_x=0.0, anchor_min_y=0.0, anchor_max_x=0.0, anchor_max_y=0.0,
+               alignment_x=0.0, alignment_y=0.0, text="", font_size=24,
+               color=None, fill_color=None, percent=1.0, auto_size=False):
+    """Add a widget to the canvas with full layout properties."""
+    try:
+        existing = widget_tree.find_widget(name) if hasattr(widget_tree, 'find_widget') else None
+        if existing:
+            return existing, None
+    except Exception:
+        pass
 
-# WBP_CharacterSelect: CharacterGrid, ReadyButton, BackButton + optionals
-populate_widget_blueprint("/Game/UI/WBP_CharacterSelect", [
-    ("CharacterGrid", unreal.UniformGridPanel),
-    ("ReadyButton", unreal.Button),
-    ("BackButton", unreal.Button),
-    ("P1SelectedImage", unreal.Image),
-    ("P2SelectedImage", unreal.Image),
-    ("P1NameText", unreal.TextBlock),
-    ("P2NameText", unreal.TextBlock),
-    ("StageNameText", unreal.TextBlock),
-])
+    try:
+        widget = widget_tree.construct_widget(widget_class, name)
+        if not widget or not root:
+            return None, None
 
-# WBP_FightHUD: P1HealthBar, P2HealthBar, TimerText, RoundText + optionals
-populate_widget_blueprint("/Game/UI/WBP_FightHUD", [
-    ("P1HealthBar", unreal.ProgressBar),
-    ("P2HealthBar", unreal.ProgressBar),
-    ("TimerText", unreal.TextBlock),
-    ("RoundText", unreal.TextBlock),
-    ("P1RoundIndicator1", unreal.Image),
-    ("P1RoundIndicator2", unreal.Image),
-    ("P2RoundIndicator1", unreal.Image),
-    ("P2RoundIndicator2", unreal.Image),
-    ("ComboCounterText", unreal.TextBlock),
-    ("AnnouncerText", unreal.TextBlock),
-    ("P1NameText", unreal.TextBlock),
-    ("P2NameText", unreal.TextBlock),
-])
+        slot = None
+        if hasattr(root, 'add_child_to_canvas'):
+            slot = root.add_child_to_canvas(widget)
+        elif hasattr(root, 'add_child'):
+            root.add_child(widget)
 
-# WBP_PauseMenu: ResumeButton, CharSelectButton, MainMenuButton
-populate_widget_blueprint("/Game/UI/WBP_PauseMenu", [
-    ("ResumeButton", unreal.Button),
-    ("CharSelectButton", unreal.Button),
-    ("MainMenuButton", unreal.Button),
-])
+        # Set canvas slot layout
+        if slot:
+            try:
+                slot.set_editor_property("layout_data", unreal.AnchorData(
+                    anchors=unreal.Anchors(
+                        minimum=unreal.Vector2D(anchor_min_x, anchor_min_y),
+                        maximum=unreal.Vector2D(anchor_max_x, anchor_max_y)
+                    ),
+                    offsets=unreal.Margin(pos_x, pos_y, size_x, size_y),
+                    alignment=unreal.Vector2D(alignment_x, alignment_y)
+                ))
+            except Exception:
+                # Fallback: set position/size individually
+                try:
+                    slot.set_position(unreal.Vector2D(pos_x, pos_y))
+                    slot.set_size(unreal.Vector2D(size_x, size_y))
+                except Exception:
+                    pass
+            try:
+                slot.set_auto_size(auto_size)
+            except Exception:
+                pass
+
+        # Configure TextBlock
+        if widget_class == unreal.TextBlock and text:
+            try:
+                widget.set_text(unreal.Text(text))
+            except Exception:
+                try:
+                    widget.set_editor_property("text", unreal.Text(text))
+                except Exception:
+                    pass
+            # Font size
+            try:
+                font = widget.get_editor_property("font")
+                font.size = font_size
+                widget.set_editor_property("font", font)
+            except Exception:
+                pass
+            # Text color
+            if color:
+                try:
+                    widget.set_editor_property("color_and_opacity",
+                        unreal.SlateColor(specified_color=unreal.LinearColor(*color)))
+                except Exception:
+                    pass
+
+        # Configure ProgressBar
+        if widget_class == unreal.ProgressBar:
+            try:
+                widget.set_editor_property("percent", percent)
+            except Exception:
+                pass
+            if fill_color:
+                try:
+                    widget.set_editor_property("fill_color_and_opacity",
+                        unreal.LinearColor(*fill_color))
+                except Exception:
+                    pass
+
+        # Configure Image tint
+        if widget_class == unreal.Image and color:
+            try:
+                widget.set_editor_property("color_and_opacity",
+                    unreal.LinearColor(*color))
+            except Exception:
+                pass
+
+        return widget, slot
+    except Exception as e:
+        msg = f"  Could not add {name}: {e}"
+        unreal.log_warning(msg)
+        WARNINGS.append(msg)
+        return None, None
+
+
+# ============================================================================
+# WBP_FightHUD - Tekken-style fight HUD layout
+# Screen: 1920x1080 reference
+# ============================================================================
+
+unreal.log("  Laying out WBP_FightHUD (Tekken-style)...")
+wb, wt, root = get_or_create_root("/Game/UI/WBP_FightHUD")
+if wt and root:
+    count = 0
+
+    # P1 Health Bar - top left, stretches toward center
+    w, s = add_widget(wt, root, "P1HealthBar", unreal.ProgressBar,
+        pos_x=40, pos_y=30, size_x=550, size_y=35,
+        fill_color=(0.2, 0.8, 0.2, 1.0), percent=1.0)
+    if w: count += 1
+
+    # P2 Health Bar - top right, stretches toward center
+    w, s = add_widget(wt, root, "P2HealthBar", unreal.ProgressBar,
+        pos_x=1330, pos_y=30, size_x=550, size_y=35,
+        fill_color=(0.8, 0.2, 0.2, 1.0), percent=1.0)
+    if w: count += 1
+
+    # Timer - top center between health bars
+    w, s = add_widget(wt, root, "TimerText", unreal.TextBlock,
+        pos_x=910, pos_y=15, size_x=100, size_y=60,
+        anchor_min_x=0.0, anchor_min_y=0.0,
+        alignment_x=0.5, alignment_y=0.0,
+        text="60", font_size=48, color=(1.0, 1.0, 0.0, 1.0))
+    if w: count += 1
+
+    # Round text - below timer
+    w, s = add_widget(wt, root, "RoundText", unreal.TextBlock,
+        pos_x=910, pos_y=75, size_x=200, size_y=30,
+        alignment_x=0.5, alignment_y=0.0,
+        text="ROUND 1", font_size=20, color=(1.0, 1.0, 1.0, 1.0))
+    if w: count += 1
+
+    # P1 Name - under P1 health bar
+    w, s = add_widget(wt, root, "P1NameText", unreal.TextBlock,
+        pos_x=40, pos_y=70, size_x=200, size_y=30,
+        text="PLAYER 1", font_size=18, color=(1.0, 1.0, 1.0, 1.0))
+    if w: count += 1
+
+    # P2 Name - under P2 health bar
+    w, s = add_widget(wt, root, "P2NameText", unreal.TextBlock,
+        pos_x=1680, pos_y=70, size_x=200, size_y=30,
+        text="PLAYER 2", font_size=18, color=(1.0, 1.0, 1.0, 1.0))
+    if w: count += 1
+
+    # Round indicators (small circles) - P1 side
+    w, s = add_widget(wt, root, "P1RoundIndicator1", unreal.Image,
+        pos_x=250, pos_y=72, size_x=20, size_y=20, color=(0.3, 0.3, 0.3, 1.0))
+    if w: count += 1
+    w, s = add_widget(wt, root, "P1RoundIndicator2", unreal.Image,
+        pos_x=280, pos_y=72, size_x=20, size_y=20, color=(0.3, 0.3, 0.3, 1.0))
+    if w: count += 1
+
+    # Round indicators - P2 side
+    w, s = add_widget(wt, root, "P2RoundIndicator1", unreal.Image,
+        pos_x=1620, pos_y=72, size_x=20, size_y=20, color=(0.3, 0.3, 0.3, 1.0))
+    if w: count += 1
+    w, s = add_widget(wt, root, "P2RoundIndicator2", unreal.Image,
+        pos_x=1650, pos_y=72, size_x=20, size_y=20, color=(0.3, 0.3, 0.3, 1.0))
+    if w: count += 1
+
+    # Combo counter - left side, mid screen
+    w, s = add_widget(wt, root, "ComboCounterText", unreal.TextBlock,
+        pos_x=100, pos_y=400, size_x=300, size_y=60,
+        text="", font_size=36, color=(1.0, 0.8, 0.0, 1.0))
+    if w: count += 1
+
+    # Announcer text - dead center (FIGHT!, KO!, ROUND 1, etc.)
+    w, s = add_widget(wt, root, "AnnouncerText", unreal.TextBlock,
+        pos_x=960, pos_y=400, size_x=600, size_y=100,
+        alignment_x=0.5, alignment_y=0.5,
+        text="", font_size=72, color=(1.0, 1.0, 1.0, 1.0))
+    if w: count += 1
+
+    unreal.log(f"  WBP_FightHUD: {count} widgets configured")
+    SUCCESS.append(f"WBP_FightHUD: {count} widgets")
+
+
+# ============================================================================
+# WBP_MainMenu - centered menu with title and buttons
+# ============================================================================
+
+unreal.log("  Laying out WBP_MainMenu...")
+wb, wt, root = get_or_create_root("/Game/UI/WBP_MainMenu")
+if wt and root:
+    count = 0
+
+    # Title - top center
+    w, s = add_widget(wt, root, "TitleText", unreal.TextBlock,
+        pos_x=960, pos_y=150, size_x=600, size_y=100,
+        alignment_x=0.5, alignment_y=0.5,
+        text="COMBAT", font_size=96, color=(1.0, 0.2, 0.2, 1.0))
+    if w: count += 1
+
+    # Play button - center
+    w, s = add_widget(wt, root, "PlayButton", unreal.Button,
+        pos_x=760, pos_y=450, size_x=400, size_y=70)
+    if w: count += 1
+
+    # Options button
+    w, s = add_widget(wt, root, "OptionsButton", unreal.Button,
+        pos_x=760, pos_y=550, size_x=400, size_y=70)
+    if w: count += 1
+
+    # Quit button
+    w, s = add_widget(wt, root, "QuitButton", unreal.Button,
+        pos_x=760, pos_y=650, size_x=400, size_y=70)
+    if w: count += 1
+
+    # Add text labels on top of buttons (as separate TextBlocks)
+    w, s = add_widget(wt, root, "PlayButtonLabel", unreal.TextBlock,
+        pos_x=960, pos_y=465, size_x=200, size_y=40,
+        alignment_x=0.5, alignment_y=0.0,
+        text="PLAY", font_size=28, color=(0.0, 0.0, 0.0, 1.0), auto_size=True)
+    if w: count += 1
+
+    w, s = add_widget(wt, root, "OptionsButtonLabel", unreal.TextBlock,
+        pos_x=960, pos_y=565, size_x=200, size_y=40,
+        alignment_x=0.5, alignment_y=0.0,
+        text="OPTIONS", font_size=28, color=(0.0, 0.0, 0.0, 1.0), auto_size=True)
+    if w: count += 1
+
+    w, s = add_widget(wt, root, "QuitButtonLabel", unreal.TextBlock,
+        pos_x=960, pos_y=665, size_x=200, size_y=40,
+        alignment_x=0.5, alignment_y=0.0,
+        text="QUIT", font_size=28, color=(0.0, 0.0, 0.0, 1.0), auto_size=True)
+    if w: count += 1
+
+    unreal.log(f"  WBP_MainMenu: {count} widgets configured")
+    SUCCESS.append(f"WBP_MainMenu: {count} widgets")
+
+
+# ============================================================================
+# WBP_CharacterSelect - character grid with portraits and ready state
+# ============================================================================
+
+unreal.log("  Laying out WBP_CharacterSelect...")
+wb, wt, root = get_or_create_root("/Game/UI/WBP_CharacterSelect")
+if wt and root:
+    count = 0
+
+    # Title
+    w, s = add_widget(wt, root, "SelectTitle", unreal.TextBlock,
+        pos_x=960, pos_y=30, size_x=600, size_y=60,
+        alignment_x=0.5, alignment_y=0.0,
+        text="SELECT YOUR FIGHTER", font_size=42, color=(1.0, 1.0, 1.0, 1.0))
+    if w: count += 1
+
+    # P1 selected portrait - left side
+    w, s = add_widget(wt, root, "P1SelectedImage", unreal.Image,
+        pos_x=80, pos_y=150, size_x=250, size_y=350, color=(0.3, 0.3, 0.8, 1.0))
+    if w: count += 1
+
+    # P1 name under portrait
+    w, s = add_widget(wt, root, "P1NameText", unreal.TextBlock,
+        pos_x=205, pos_y=510, size_x=250, size_y=40,
+        alignment_x=0.5, alignment_y=0.0,
+        text="P1: ???", font_size=24, color=(0.5, 0.5, 1.0, 1.0))
+    if w: count += 1
+
+    # P2 selected portrait - right side
+    w, s = add_widget(wt, root, "P2SelectedImage", unreal.Image,
+        pos_x=1590, pos_y=150, size_x=250, size_y=350, color=(0.8, 0.3, 0.3, 1.0))
+    if w: count += 1
+
+    # P2 name under portrait
+    w, s = add_widget(wt, root, "P2NameText", unreal.TextBlock,
+        pos_x=1715, pos_y=510, size_x=250, size_y=40,
+        alignment_x=0.5, alignment_y=0.0,
+        text="P2: ???", font_size=24, color=(1.0, 0.5, 0.5, 1.0))
+    if w: count += 1
+
+    # Character grid - center
+    w, s = add_widget(wt, root, "CharacterGrid", unreal.UniformGridPanel,
+        pos_x=460, pos_y=150, size_x=1000, size_y=400)
+    if w: count += 1
+
+    # Stage name - bottom center
+    w, s = add_widget(wt, root, "StageNameText", unreal.TextBlock,
+        pos_x=960, pos_y=620, size_x=400, size_y=40,
+        alignment_x=0.5, alignment_y=0.0,
+        text="STAGE: ARENA", font_size=22, color=(0.8, 0.8, 0.8, 1.0))
+    if w: count += 1
+
+    # Ready button - bottom center
+    w, s = add_widget(wt, root, "ReadyButton", unreal.Button,
+        pos_x=810, pos_y=700, size_x=300, size_y=60)
+    if w: count += 1
+
+    w, s = add_widget(wt, root, "ReadyButtonLabel", unreal.TextBlock,
+        pos_x=960, pos_y=715, size_x=200, size_y=40,
+        alignment_x=0.5, alignment_y=0.0,
+        text="READY", font_size=28, color=(0.0, 0.0, 0.0, 1.0), auto_size=True)
+    if w: count += 1
+
+    # Back button - bottom left
+    w, s = add_widget(wt, root, "BackButton", unreal.Button,
+        pos_x=40, pos_y=700, size_x=200, size_y=60)
+    if w: count += 1
+
+    w, s = add_widget(wt, root, "BackButtonLabel", unreal.TextBlock,
+        pos_x=140, pos_y=715, size_x=200, size_y=40,
+        alignment_x=0.5, alignment_y=0.0,
+        text="BACK", font_size=24, color=(0.0, 0.0, 0.0, 1.0), auto_size=True)
+    if w: count += 1
+
+    unreal.log(f"  WBP_CharacterSelect: {count} widgets configured")
+    SUCCESS.append(f"WBP_CharacterSelect: {count} widgets")
+
+
+# ============================================================================
+# WBP_PauseMenu - centered overlay with semi-transparent background
+# ============================================================================
+
+unreal.log("  Laying out WBP_PauseMenu...")
+wb, wt, root = get_or_create_root("/Game/UI/WBP_PauseMenu")
+if wt and root:
+    count = 0
+
+    # Dark overlay background
+    w, s = add_widget(wt, root, "OverlayBG", unreal.Image,
+        pos_x=0, pos_y=0, size_x=1920, size_y=1080,
+        color=(0.0, 0.0, 0.0, 0.6))
+    if w: count += 1
+
+    # PAUSED title
+    w, s = add_widget(wt, root, "PausedTitle", unreal.TextBlock,
+        pos_x=960, pos_y=300, size_x=400, size_y=80,
+        alignment_x=0.5, alignment_y=0.5,
+        text="PAUSED", font_size=64, color=(1.0, 1.0, 1.0, 1.0))
+    if w: count += 1
+
+    # Resume button
+    w, s = add_widget(wt, root, "ResumeButton", unreal.Button,
+        pos_x=760, pos_y=430, size_x=400, size_y=60)
+    if w: count += 1
+    w, s = add_widget(wt, root, "ResumeLabel", unreal.TextBlock,
+        pos_x=960, pos_y=443, size_x=200, size_y=40,
+        alignment_x=0.5, alignment_y=0.0,
+        text="RESUME", font_size=26, color=(0.0, 0.0, 0.0, 1.0), auto_size=True)
+    if w: count += 1
+
+    # Character Select button
+    w, s = add_widget(wt, root, "CharSelectButton", unreal.Button,
+        pos_x=760, pos_y=520, size_x=400, size_y=60)
+    if w: count += 1
+    w, s = add_widget(wt, root, "CharSelectLabel", unreal.TextBlock,
+        pos_x=960, pos_y=533, size_x=300, size_y=40,
+        alignment_x=0.5, alignment_y=0.0,
+        text="CHARACTER SELECT", font_size=26, color=(0.0, 0.0, 0.0, 1.0), auto_size=True)
+    if w: count += 1
+
+    # Main Menu button
+    w, s = add_widget(wt, root, "MainMenuButton", unreal.Button,
+        pos_x=760, pos_y=610, size_x=400, size_y=60)
+    if w: count += 1
+    w, s = add_widget(wt, root, "MainMenuLabel", unreal.TextBlock,
+        pos_x=960, pos_y=623, size_x=200, size_y=40,
+        alignment_x=0.5, alignment_y=0.0,
+        text="MAIN MENU", font_size=26, color=(0.0, 0.0, 0.0, 1.0), auto_size=True)
+    if w: count += 1
+
+    unreal.log(f"  WBP_PauseMenu: {count} widgets configured")
+    SUCCESS.append(f"WBP_PauseMenu: {count} widgets")
 
 # ============================================================================
 # 7. CONFIGURE PROJECT SETTINGS (via config)
@@ -516,7 +805,11 @@ unreal.log("=" * 60)
 unreal.log("  [x] All C++ classes compiled and loaded")
 unreal.log("  [x] Folder structure created")
 unreal.log("  [x] 3 Maps created (MainMenu, CharacterSelect, FightingArena)")
-unreal.log("  [x] 4 Widget Blueprints created + UI elements added")
+unreal.log("  [x] 4 Widget Blueprints created with FULL LAYOUT:")
+unreal.log("      - WBP_FightHUD: health bars, timer, round indicators, combo counter, announcer")
+unreal.log("      - WBP_MainMenu: title, Play/Options/Quit buttons with labels")
+unreal.log("      - WBP_CharacterSelect: portraits, grid, names, Ready/Back buttons")
+unreal.log("      - WBP_PauseMenu: dark overlay, Resume/CharSelect/MainMenu buttons")
 unreal.log("  [x] 6 Gameplay Blueprints created")
 unreal.log("  [x] Animation Blueprint created (using TestFighter_Skelaton)")
 unreal.log("  [x] 10 Input Actions + Mapping Context created")
@@ -532,23 +825,24 @@ unreal.log("   - Select the Mesh component")
 unreal.log("   - Set Skeletal Mesh using TestFighter_Skelaton")
 unreal.log("   - Set Anim Blueprint = ABP_TestFighter")
 unreal.log("")
-unreal.log("2. SET UP ABP_TestFighter (see state machine details above):")
+unreal.log("2. SET UP ABP_TestFighter STATE MACHINE:")
 unreal.log("   - Open ABP_TestFighter > AnimGraph > right-click > Add State Machine")
 unreal.log("   - Add 10 states with the exact names listed above")
 unreal.log("   - Each state plays the corresponding Anim_* sequence")
 unreal.log("   - Wire transitions using the bool variables (bIsMoving, etc.)")
 unreal.log("   - Name your animation files as listed above in /Game/Animations/")
 unreal.log("")
-unreal.log("3. STYLE THE UI WIDGETS (optional polish):")
-unreal.log("   The required widgets have been auto-created, but you may want")
-unreal.log("   to reposition/resize them in each WBP_* Widget Designer.")
-unreal.log("   Open each one and arrange the layout to your liking.")
-unreal.log("")
-unreal.log("4. SET UP FightingArenaMap:")
+unreal.log("3. SET UP FightingArenaMap:")
 unreal.log("   - Open /Game/Maps/FightingArenaMap")
 unreal.log("   - Drag in BP_FightingArena (adds floor + invisible walls)")
 unreal.log("   - Drag in BP_FightingCamera")
 unreal.log("   - Add any background scenery you want")
+unreal.log("")
+unreal.log("4. ADD CHARACTER TO DT_Characters DATA TABLE:")
+unreal.log("   - Open /Game/Data/DT_Characters")
+unreal.log("   - Add Row: RowName=TestFighter")
+unreal.log("   - DisplayName=Test Fighter, FighterClass=BP_TestFighter")
+unreal.log("   - MaxHealth=100, WalkSpeed=600")
 unreal.log("")
 unreal.log("After these steps, hit Play in FightingArenaMap to test!")
 unreal.log("=" * 60)

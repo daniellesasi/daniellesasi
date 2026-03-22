@@ -65,7 +65,9 @@ Combat/
 
 ## Step 6: Manual Setup (what the scripts CAN'T do)
 
-After running both scripts, you only need to do these things by hand:
+After running both scripts, you only need to do these things by hand.
+
+> **Note:** Key bindings (IMC_Fighter) and UI widget layouts are now **fully automated** by the scripts. The widgets are positioned in a Tekken-style layout with placeholder colors and text. You can tweak the layout later in the Widget Designer.
 
 ### 6a. Set Up BP_TestFighter's Mesh
 
@@ -98,85 +100,14 @@ After running both scripts, you only need to do these things by hand:
 6. Add a **Default Slot** node after the state machine (for attack montages)
 7. Connect: State Machine > Default Slot > Output Pose
 
-### 6c. Set Up Key Bindings (IMC_Fighter)
-
-1. Open `Content/Input/IMC_Fighter`
-2. Add mappings for each Input Action:
-
-**Keyboard:**
-
-| Input Action | Key |
-|-------------|-----|
-| IA_Move | W, A, S, D (use WASD modifier) |
-| IA_Jump | Spacebar |
-| IA_Crouch | Left Ctrl (hold) |
-| IA_Block | V |
-| IA_LeftPunch | U |
-| IA_RightPunch | I |
-| IA_LeftKick | J |
-| IA_RightKick | K |
-| IA_Sidestep | Q (negative) / E (positive) |
-| IA_Pause | Escape |
-
-**Gamepad:**
-
-| Input Action | Button |
-|-------------|--------|
-| IA_Move | Left Thumbstick |
-| IA_Jump | Left Stick Up |
-| IA_Crouch | Left Stick Down |
-| IA_Block | Right Bumper |
-| IA_LeftPunch | Face Left (Square / X) |
-| IA_RightPunch | Face Top (Triangle / Y) |
-| IA_LeftKick | Face Bottom (Cross / A) |
-| IA_RightKick | Face Right (Circle / B) |
-| IA_Sidestep | Right Thumbstick Y |
-| IA_Pause | Special Right (Start) |
-
-### 6d. Design UI Widgets
-
-Open each widget and add the required UI elements. The C++ code finds them by name, so **names must match exactly**:
-
-**WBP_MainMenu** (buttons only):
-- `PlayButton` (Button)
-- `OptionsButton` (Button)
-- `QuitButton` (Button)
-- `TitleText` (TextBlock) -- optional
-
-**WBP_CharacterSelect:**
-- `CharacterGrid` (Uniform Grid Panel)
-- `ReadyButton` (Button)
-- `BackButton` (Button)
-- `P1SelectedImage` (Image) -- optional
-- `P2SelectedImage` (Image) -- optional
-- `P1NameText` (TextBlock) -- optional
-- `P2NameText` (TextBlock) -- optional
-
-**WBP_FightHUD:**
-- `P1HealthBar` (Progress Bar)
-- `P2HealthBar` (Progress Bar)
-- `TimerText` (TextBlock)
-- `RoundText` (TextBlock)
-- `AnnouncerText` (TextBlock) -- optional
-- `ComboCounterText` (TextBlock) -- optional
-- `P1NameText` (TextBlock) -- optional
-- `P2NameText` (TextBlock) -- optional
-
-**WBP_PauseMenu:**
-- `ResumeButton` (Button)
-- `CharSelectButton` (Button)
-- `MainMenuButton` (Button)
-
-> **Shortcut:** For a quick test, just add the required (non-optional) widgets with default styling. You can make them pretty later.
-
-### 6e. Set Up the Arena Map
+### 6c. Set Up the Arena Map
 
 1. Open `Content/Maps/FightingArenaMap`
 2. Drag `BP_FightingArena` from Content Browser into the level
 3. Drag `BP_FightingCamera` into the level
 4. Add a floor plane and any background you want
 
-### 6f. Add a Character to DT_Characters
+### 6d. Add a Character to DT_Characters
 
 1. Open `Content/Data/DT_Characters`
 2. Click **Add** to add a new row
