@@ -66,6 +66,49 @@ void ACombatCharacter::BeginPlay()
 	// Auto-load input assets if not set via Blueprint defaults
 	LoadInputActionsIfNeeded();
 
+	// Populate a default move list if none was set in Blueprint
+	if (MoveList.Num() == 0)
+	{
+		auto MakeMove = [](FName Name, EAttackType Type, EHitHeight Height,
+			float Dmg, int32 Startup, int32 Active, int32 Recovery,
+			int32 HitStun, int32 BlockStun, float Knockback,
+			float Launch = 0.f, bool bKD = false)
+		{
+			FAttackData M;
+			M.MoveName = Name;
+			M.AttackType = Type;
+			M.HitHeight = Height;
+			M.Damage = Dmg;
+			M.StartupFrames = Startup;
+			M.ActiveFrames = Active;
+			M.RecoveryFrames = Recovery;
+			M.HitStunFrames = HitStun;
+			M.BlockStunFrames = BlockStun;
+			M.KnockbackDistance = Knockback;
+			M.LaunchHeight = Launch;
+			M.bKnocksDown = bKD;
+			return M;
+		};
+
+		// Basic punches
+		MoveList.Add(MakeMove(FName("LeftJab"),    EAttackType::HighPunch, EHitHeight::High, 10.f,  10, 3, 12, 18, 8,  80.f));
+		MoveList.Add(MakeMove(FName("RightStraight"), EAttackType::MidPunch, EHitHeight::Mid, 14.f, 13, 3, 15, 22, 10, 100.f));
+		MoveList.Add(MakeMove(FName("LowJab"),     EAttackType::LowPunch, EHitHeight::Low,   8.f,   8, 3, 10, 15, 7,  60.f));
+
+		// Basic kicks
+		MoveList.Add(MakeMove(FName("HighKick"),   EAttackType::HighKick, EHitHeight::High,  15.f,  12, 4, 18, 20, 10, 120.f));
+		MoveList.Add(MakeMove(FName("MidKick"),    EAttackType::MidKick,  EHitHeight::Mid,   18.f,  15, 4, 20, 24, 12, 130.f));
+		MoveList.Add(MakeMove(FName("LowKick"),    EAttackType::LowKick,  EHitHeight::Low,   12.f,  10, 4, 15, 18, 8,  90.f));
+
+		// Launcher (Down-Forward + Right Punch)
+		MoveList.Add(MakeMove(FName("Uppercut"),   EAttackType::Launcher, EHitHeight::Mid,   20.f,  16, 3, 25, 28, 12, 100.f, 500.f));
+
+		// Sweep (crouch kick variant)
+		MoveList.Add(MakeMove(FName("Sweep"),      EAttackType::Sweep,    EHitHeight::Low,   16.f,  18, 5, 22, 0,  10, 80.f, 0.f, true));
+
+		UE_LOG(LogCombatGame, Warning, TEXT("CombatCharacter: Populated %d default moves"), MoveList.Num());
+	}
+
 	// Add input mapping context (fallback if controller didn't set it)
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
@@ -141,6 +184,13 @@ void ACombatCharacter::LoadInputActionsIfNeeded()
 	TryLoad(LeftKickAction, TEXT("IA_LeftKick"));
 	TryLoad(RightKickAction, TEXT("IA_RightKick"));
 	TryLoad(SidestepAction, TEXT("IA_Sidestep"));
+	TryLoad(SidestepLeftAction, TEXT("IA_SidestepLeft"));
+	// Create SidestepLeftAction at runtime if asset doesn't exist
+	if (!SidestepLeftAction)
+	{
+		SidestepLeftAction = NewObject<UInputAction>(this, TEXT("IA_SidestepLeft_Runtime"));
+		SidestepLeftAction->ValueType = EInputActionValueType::Boolean;
+	}
 
 	UE_LOG(LogCombatGame, Warning, TEXT("CombatCharacter Input Load: Move=%s Jump=%s Crouch=%s Block=%s LP=%s RP=%s LK=%s RK=%s SS=%s IMC=%s"),
 		MoveAction ? TEXT("OK") : TEXT("NULL"),
@@ -282,11 +332,16 @@ void ACombatCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 				MapKey(RightKickAction, EKeys::K);
 			}
 
-			// Sidestep
+			// Sidestep (Q = into background, E = back out)
 			if (SidestepAction)
 			{
 				SidestepAction->ValueType = EInputActionValueType::Boolean;
 				MapKey(SidestepAction, EKeys::Q);
+			}
+			if (SidestepLeftAction)
+			{
+				SidestepLeftAction->ValueType = EInputActionValueType::Boolean;
+				MapKey(SidestepLeftAction, EKeys::E);
 			}
 
 			Subsystem->ClearAllMappings();
@@ -340,6 +395,8 @@ void ACombatCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EIC->BindAction(RightKickAction, ETriggerEvent::Triggered, this, &ACombatCharacter::HandleRightKick);
 	if (SidestepAction)
 		EIC->BindAction(SidestepAction, ETriggerEvent::Triggered, this, &ACombatCharacter::HandleSidestep);
+	if (SidestepLeftAction)
+		EIC->BindAction(SidestepLeftAction, ETriggerEvent::Triggered, this, &ACombatCharacter::HandleSidestepLeft);
 }
 
 // ============================================================================
@@ -835,6 +892,52 @@ void ACombatCharacter::HandleMove(const FInputActionValue& Value)
 	FVector2D MoveInput = Value.Get<FVector2D>();
 	CurrentStickDirection = GetDirectionFromStick(MoveInput);
 
+	// Tekken-style: Up on stick = Jump, Down on stick = Crouch
+	if (MoveInput.Y > 0.5f)
+	{
+		// Up pressed → jump (same as dedicated jump button)
+		if (!bIsAttacking && CurrentState != EFighterState::HitStun &&
+			CurrentState != EFighterState::BlockStun && CurrentState != EFighterState::KnockedDown)
+		{
+			if (GetCharacterMovement()->IsMovingOnGround())
+			{
+				SetFighterState(EFighterState::Jumping);
+				Jump();
+			}
+		}
+	}
+	else if (MoveInput.Y < -0.5f)
+	{
+		// Down pressed → crouch
+		if (!bIsCrouching)
+		{
+			bIsCrouching = true;
+			if (bIsBlocking)
+				SetFighterState(EFighterState::CrouchBlocking);
+			else if (!bIsAttacking)
+				SetFighterState(EFighterState::Crouching);
+		}
+	}
+	else
+	{
+		// Y near zero → release crouch if it was from stick
+		if (bIsCrouching && bCrouchFromStick)
+		{
+			bIsCrouching = false;
+			if (CurrentState == EFighterState::Crouching || CurrentState == EFighterState::CrouchBlocking)
+			{
+				if (bIsBlocking)
+					SetFighterState(EFighterState::Blocking);
+				else
+					SetFighterState(EFighterState::Idle);
+			}
+		}
+	}
+
+	// Track whether crouch came from stick (Down arrow) so we don't
+	// accidentally release crouch triggered by the dedicated Crouch key
+	bCrouchFromStick = (MoveInput.Y < -0.5f);
+
 	if (!bIsAttacking)
 	{
 		// Horizontal movement
@@ -875,8 +978,6 @@ void ACombatCharacter::HandleMove(const FInputActionValue& Value)
 
 		if (CurrentState != EFighterState::Dashing && CurrentState != EFighterState::BackDashing)
 		{
-			// Set the walk speed based on direction, then use scale 1.0
-			// (AddMovementInput ScaleValue is 0-1, actual speed comes from MaxWalkSpeed)
 			GetCharacterMovement()->MaxWalkSpeed = MoveSpeed;
 			AddMovementInput(MoveDir, 1.0f);
 			if (!bIsCrouching && CurrentState != EFighterState::Jumping)
@@ -890,6 +991,21 @@ void ACombatCharacter::HandleMove(const FInputActionValue& Value)
 void ACombatCharacter::HandleMoveCompleted(const FInputActionValue& Value)
 {
 	CurrentStickDirection = EInputDirection::Neutral;
+
+	// Release stick-crouch when all movement keys released
+	if (bCrouchFromStick && bIsCrouching)
+	{
+		bIsCrouching = false;
+		bCrouchFromStick = false;
+		if (CurrentState == EFighterState::Crouching || CurrentState == EFighterState::CrouchBlocking)
+		{
+			if (bIsBlocking)
+				SetFighterState(EFighterState::Blocking);
+			else
+				SetFighterState(EFighterState::Idle);
+		}
+	}
+
 	if (CurrentState == EFighterState::Walking)
 	{
 		SetFighterState(EFighterState::Idle);
@@ -973,8 +1089,13 @@ void ACombatCharacter::HandleRightKick(const FInputActionValue& Value)
 void ACombatCharacter::HandleSidestep(const FInputActionValue& Value)
 {
 	if (!bInputEnabled) return;
-	float Dir = Value.Get<float>();
-	PerformSidestep(Dir > 0);
+	PerformSidestep(true); // Q = sidestep right (into background)
+}
+
+void ACombatCharacter::HandleSidestepLeft(const FInputActionValue& Value)
+{
+	if (!bInputEnabled) return;
+	PerformSidestep(false); // E = sidestep left (back to foreground)
 }
 
 void ACombatCharacter::ProcessAttackButton(EAttackButton Button)
