@@ -66,9 +66,6 @@ void ACombatCharacter::BeginPlay()
 	// Auto-load input assets if not set via Blueprint defaults
 	LoadInputActionsIfNeeded();
 
-	// Auto-load state animations from /Game/Animations/
-	LoadStateAnimations();
-
 	// Populate a default move list if none was set in Blueprint.
 	// Uses a single generic "Attack" for all buttons (one animation covers all).
 	if (MoveList.Num() == 0)
@@ -412,9 +409,6 @@ void ACombatCharacter::SetFighterState(EFighterState NewState)
 	EFighterState OldState = CurrentState;
 	CurrentState = NewState;
 	OnFighterStateChanged.Broadcast(NewState);
-
-	// Play the animation for this state (no ABP state machine needed)
-	PlayStateAnimation(NewState);
 
 	// State enter logic
 	switch (NewState)
@@ -1351,22 +1345,20 @@ EInputDirection ACombatCharacter::GetDirectionFromStick(FVector2D StickInput) co
 
 float ACombatCharacter::PlayAttackMontage(const FAttackData& Attack)
 {
-	// Try montage first (if set in Blueprint/MoveList)
 	if (UAnimMontage* Montage = Attack.AttackMontage.LoadSynchronous())
 	{
 		return PlayAnimMontage(Montage);
 	}
 
-	// Fallback: AttackAnim is already playing via PlayStateAnimation()
-	// called from SetFighterState(Attacking), so no extra work needed.
+	// No montage set — the state machine handles the Attacking animation
+	// via the bIsAttacking transition in the ABP.
 
-	// Play whiff sound
 	if (USoundBase* WhiffSnd = Attack.WhiffSound.LoadSynchronous())
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, WhiffSnd, GetActorLocation());
 	}
 
-	return AttackAnim ? AttackAnim->GetPlayLength() : 0.0f;
+	return 0.0f;
 }
 
 void ACombatCharacter::PlayHitReaction(const FAttackData& Attack)
@@ -1403,100 +1395,3 @@ void ACombatCharacter::PlayBlockReaction()
 	}
 }
 
-void ACombatCharacter::LoadStateAnimations()
-{
-	// Auto-load animation sequences from /Game/Animations/ by name convention
-	auto TryLoadAnim = [](UAnimSequence*& Anim, const TCHAR* Name)
-	{
-		if (Anim) return; // Already set in Blueprint
-
-		FString Paths[] = {
-			FString::Printf(TEXT("/Game/Animations/%s.%s"), Name, Name),
-			FString::Printf(TEXT("/Game/Characters/TestFighter/%s.%s"), Name, Name),
-		};
-
-		for (const FString& Path : Paths)
-		{
-			Anim = Cast<UAnimSequence>(StaticLoadObject(UAnimSequence::StaticClass(), nullptr, *Path));
-			if (Anim)
-			{
-				UE_LOG(LogCombatGame, Log, TEXT("Loaded state anim: %s from %s"), Name, *Path);
-				return;
-			}
-		}
-		UE_LOG(LogCombatGame, Warning, TEXT("State anim not found: %s"), Name);
-	};
-
-	TryLoadAnim(IdleAnim,      TEXT("Anim_Idle"));
-	TryLoadAnim(WalkAnim,      TEXT("Anim_Walk"));
-	TryLoadAnim(JumpAnim,      TEXT("Anim_Jump"));
-	TryLoadAnim(CrouchAnim,    TEXT("Anim_Crouch"));
-	TryLoadAnim(BlockAnim,     TEXT("Anim_Block"));
-	TryLoadAnim(AttackAnim,    TEXT("Anim_Attack"));
-	TryLoadAnim(HitStunAnim,   TEXT("Anim_HitStun"));
-	TryLoadAnim(KnockDownAnim, TEXT("Anim_KnockDown"));
-	TryLoadAnim(LaunchedAnim,  TEXT("Anim_Launched"));
-	TryLoadAnim(DeathAnim,     TEXT("Anim_Death"));
-}
-
-void ACombatCharacter::PlayStateAnimation(EFighterState State)
-{
-	UAnimSequence* Anim = nullptr;
-	bool bLooping = false;
-
-	switch (State)
-	{
-	case EFighterState::Idle:
-		Anim = IdleAnim;
-		bLooping = true;
-		break;
-	case EFighterState::Walking:
-		Anim = WalkAnim;
-		bLooping = true;
-		break;
-	case EFighterState::Jumping:
-		Anim = JumpAnim;
-		bLooping = false;
-		break;
-	case EFighterState::Crouching:
-	case EFighterState::CrouchBlocking:
-		Anim = CrouchAnim;
-		bLooping = true;
-		break;
-	case EFighterState::Blocking:
-		Anim = BlockAnim;
-		bLooping = true;
-		break;
-	case EFighterState::Attacking:
-		Anim = AttackAnim;
-		bLooping = false;
-		break;
-	case EFighterState::HitStun:
-	case EFighterState::BlockStun:
-		Anim = HitStunAnim;
-		bLooping = false;
-		break;
-	case EFighterState::KnockedDown:
-	case EFighterState::GettingUp:
-		Anim = KnockDownAnim;
-		bLooping = false;
-		break;
-	case EFighterState::Launched:
-		Anim = LaunchedAnim;
-		bLooping = false;
-		break;
-	case EFighterState::Dead:
-		Anim = DeathAnim;
-		bLooping = false;
-		break;
-	default:
-		break;
-	}
-
-	if (Anim && GetMesh())
-	{
-		// Play animation directly on the mesh — NO ABP state machine needed.
-		// This overrides whatever the AnimBP is doing.
-		GetMesh()->PlayAnimation(Anim, bLooping);
-	}
-}
