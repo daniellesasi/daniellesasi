@@ -71,7 +71,7 @@ void ACombatPlayerController::AddFighterMappingContext()
 		Subsystem->ClearAllMappings();
 		Subsystem->AddMappingContext(IMC, 0);
 		bMappingContextAdded = true;
-		UE_LOG(LogCombatGame, Log, TEXT("CombatPlayerController: Added fighter mapping context successfully"));
+		UE_LOG(LogCombatGame, Warning, TEXT("CombatPlayerController: Added fighter mapping context successfully"));
 	}
 	else
 	{

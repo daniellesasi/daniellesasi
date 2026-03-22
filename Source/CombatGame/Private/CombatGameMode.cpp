@@ -226,8 +226,12 @@ void ACombatGameMode::StartRound()
 	OnRoundStarted.Broadcast(CurrentRound);
 
 	// Delay before fighting begins
+	UE_LOG(LogCombatGame, Warning, TEXT("StartRound: Setting intro timer for %.1f seconds"), RoundIntroTime);
 	GetWorldTimerManager().SetTimer(RoundIntroTimerHandle, [this]()
 	{
+		UE_LOG(LogCombatGame, Warning, TEXT("RoundIntro timer FIRED! Enabling input. Fighter1=%s Fighter2=%s"),
+			Fighter1 ? TEXT("Valid") : TEXT("NULL"),
+			Fighter2 ? TEXT("Valid") : TEXT("NULL"));
 		SetMatchState(EMatchState::Fighting);
 
 		// Enable fighter input

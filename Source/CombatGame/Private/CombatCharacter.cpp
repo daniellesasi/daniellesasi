@@ -706,7 +706,7 @@ void ACombatCharacter::UpdateFacing()
 void ACombatCharacter::HandleMove(const FInputActionValue& Value)
 {
 	FVector2D DebugInput = Value.Get<FVector2D>();
-	UE_LOG(LogCombatGame, Log, TEXT("HandleMove called! Input=(%f,%f) bInputEnabled=%d State=%d"),
+	UE_LOG(LogCombatGame, Warning, TEXT("HandleMove called! Input=(%f,%f) bInputEnabled=%d State=%d"),
 		DebugInput.X, DebugInput.Y, bInputEnabled, (int32)CurrentState);
 	if (!bInputEnabled) return;
 	if (CurrentState == EFighterState::HitStun || CurrentState == EFighterState::BlockStun ||
