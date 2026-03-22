@@ -50,10 +50,30 @@ void ACombatGameMode::Tick(float DeltaTime)
 	}
 }
 
+void ACombatGameMode::RestartPlayer(AController* NewPlayer)
+{
+	// Do NOT call Super — we don't want UE to auto-spawn a default pawn.
+	// Fighters are spawned manually in SpawnFighters().
+}
+
+UClass* ACombatGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
+{
+	// Return nullptr to prevent any default pawn spawning
+	return nullptr;
+}
+
 void ACombatGameMode::SpawnFighters()
 {
 	UWorld* World = GetWorld();
 	if (!World) return;
+
+	// Destroy any pre-existing CombatCharacters (e.g. placed in the level or auto-spawned)
+	TArray<AActor*> ExistingFighters;
+	UGameplayStatics::GetAllActorsOfClass(World, ACombatCharacter::StaticClass(), ExistingFighters);
+	for (AActor* Actor : ExistingFighters)
+	{
+		Actor->Destroy();
+	}
 
 	UCombatGameInstance* GI = Cast<UCombatGameInstance>(GetGameInstance());
 
