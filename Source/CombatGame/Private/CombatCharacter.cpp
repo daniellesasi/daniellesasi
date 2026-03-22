@@ -60,13 +60,13 @@ void ACombatCharacter::BeginPlay()
 
 	CurrentHealth = MaxHealth;
 
-	// Add input mapping context
+	// Add input mapping context (fallback if controller didn't set it)
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
 		if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
 			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
 		{
-			if (FighterMappingContext)
+			if (FighterMappingContext && !Subsystem->HasMappingContext(FighterMappingContext))
 			{
 				Subsystem->AddMappingContext(FighterMappingContext, 0);
 			}

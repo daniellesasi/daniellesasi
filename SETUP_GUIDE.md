@@ -13,7 +13,7 @@ The C++ code handles ALL the game logic. You just need to set up assets in the e
 
 1. Open **Unreal Engine 5.7**
 2. Create a new project: **Games > Third Person** template
-3. Name it **Combat** (or whatever you like)
+3. Name it **CombatGame** (must match exactly — the module name in all C++ source files is `CombatGame`)
 4. Choose **C++** (not Blueprint) as the project type
 5. Click **Create**
 

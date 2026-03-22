@@ -2,6 +2,7 @@
 #include "CombatGame.h"
 #include "CombatGameInstance.h"
 #include "CombatCharacter.h"
+#include "CombatPlayerController.h"
 #include "FighterAIController.h"
 #include "FightingCameraActor.h"
 #include "CombatHUD.h"
@@ -12,6 +13,7 @@ ACombatGameMode::ACombatGameMode()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	DefaultPawnClass = nullptr; // We spawn fighters manually
+	PlayerControllerClass = ACombatPlayerController::StaticClass();
 	HUDClass = ACombatHUD::StaticClass();
 
 	CurrentMatchState = EMatchState::WaitingToStart;
