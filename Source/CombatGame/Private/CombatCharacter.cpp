@@ -66,47 +66,46 @@ void ACombatCharacter::BeginPlay()
 	// Auto-load input assets if not set via Blueprint defaults
 	LoadInputActionsIfNeeded();
 
-	// Populate a default move list if none was set in Blueprint
+	// Populate a default move list if none was set in Blueprint.
+	// Uses a single generic "Attack" for all buttons (one animation covers all).
 	if (MoveList.Num() == 0)
 	{
-		auto MakeMove = [](FName Name, EAttackType Type, EHitHeight Height,
-			float Dmg, int32 Startup, int32 Active, int32 Recovery,
-			int32 HitStun, int32 BlockStun, float Knockback,
-			float Launch = 0.f, bool bKD = false)
-		{
-			FAttackData M;
-			M.MoveName = Name;
-			M.AttackType = Type;
-			M.HitHeight = Height;
-			M.Damage = Dmg;
-			M.StartupFrames = Startup;
-			M.ActiveFrames = Active;
-			M.RecoveryFrames = Recovery;
-			M.HitStunFrames = HitStun;
-			M.BlockStunFrames = BlockStun;
-			M.KnockbackDistance = Knockback;
-			M.LaunchHeight = Launch;
-			M.bKnocksDown = bKD;
-			return M;
+		FAttackData Attack;
+		Attack.MoveName = FName("Attack");
+		Attack.Damage = 12.f;
+		Attack.StartupFrames = 10;
+		Attack.ActiveFrames = 4;
+		Attack.RecoveryFrames = 14;
+		Attack.HitStunFrames = 20;
+		Attack.BlockStunFrames = 9;
+		Attack.KnockbackDistance = 100.f;
+
+		// All attack types point to the same move data so any button works
+		EAttackType AllTypes[] = {
+			EAttackType::HighPunch, EAttackType::MidPunch, EAttackType::LowPunch,
+			EAttackType::HighKick,  EAttackType::MidKick,  EAttackType::LowKick,
+			EAttackType::Launcher,  EAttackType::Sweep
 		};
+		for (EAttackType Type : AllTypes)
+		{
+			FAttackData Entry = Attack;
+			Entry.AttackType = Type;
+			// Set hit height to match type for blocking logic
+			if (Type == EAttackType::HighPunch || Type == EAttackType::HighKick)
+				Entry.HitHeight = EHitHeight::High;
+			else if (Type == EAttackType::LowPunch || Type == EAttackType::LowKick || Type == EAttackType::Sweep)
+				Entry.HitHeight = EHitHeight::Low;
+			else
+				Entry.HitHeight = EHitHeight::Mid;
+			// Launcher gets extra launch height
+			if (Type == EAttackType::Launcher)
+				Entry.LaunchHeight = 500.f;
+			if (Type == EAttackType::Sweep)
+				Entry.bKnocksDown = true;
+			MoveList.Add(Entry);
+		}
 
-		// Basic punches
-		MoveList.Add(MakeMove(FName("LeftJab"),    EAttackType::HighPunch, EHitHeight::High, 10.f,  10, 3, 12, 18, 8,  80.f));
-		MoveList.Add(MakeMove(FName("RightStraight"), EAttackType::MidPunch, EHitHeight::Mid, 14.f, 13, 3, 15, 22, 10, 100.f));
-		MoveList.Add(MakeMove(FName("LowJab"),     EAttackType::LowPunch, EHitHeight::Low,   8.f,   8, 3, 10, 15, 7,  60.f));
-
-		// Basic kicks
-		MoveList.Add(MakeMove(FName("HighKick"),   EAttackType::HighKick, EHitHeight::High,  15.f,  12, 4, 18, 20, 10, 120.f));
-		MoveList.Add(MakeMove(FName("MidKick"),    EAttackType::MidKick,  EHitHeight::Mid,   18.f,  15, 4, 20, 24, 12, 130.f));
-		MoveList.Add(MakeMove(FName("LowKick"),    EAttackType::LowKick,  EHitHeight::Low,   12.f,  10, 4, 15, 18, 8,  90.f));
-
-		// Launcher (Down-Forward + Right Punch)
-		MoveList.Add(MakeMove(FName("Uppercut"),   EAttackType::Launcher, EHitHeight::Mid,   20.f,  16, 3, 25, 28, 12, 100.f, 500.f));
-
-		// Sweep (crouch kick variant)
-		MoveList.Add(MakeMove(FName("Sweep"),      EAttackType::Sweep,    EHitHeight::Low,   16.f,  18, 5, 22, 0,  10, 80.f, 0.f, true));
-
-		UE_LOG(LogCombatGame, Warning, TEXT("CombatCharacter: Populated %d default moves"), MoveList.Num());
+		UE_LOG(LogCombatGame, Warning, TEXT("CombatCharacter: Populated default attack (single animation) for all %d attack types"), MoveList.Num());
 	}
 
 	// Add input mapping context (fallback if controller didn't set it)
