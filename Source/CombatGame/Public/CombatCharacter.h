@@ -282,6 +282,10 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Input")
 	UInputAction* SidestepAction;
 
+	// Sidestep in the opposite direction (E key)
+	UPROPERTY(EditDefaultsOnly, Category = "Input")
+	UInputAction* SidestepLeftAction;
+
 	// Input handlers
 	void HandleMove(const FInputActionValue& Value);
 	void HandleMoveCompleted(const FInputActionValue& Value);
@@ -295,6 +299,7 @@ protected:
 	void HandleLeftKick(const FInputActionValue& Value);
 	void HandleRightKick(const FInputActionValue& Value);
 	void HandleSidestep(const FInputActionValue& Value);
+	void HandleSidestepLeft(const FInputActionValue& Value);
 
 	// Auto-load input assets from /Game/Input/ when not set in Blueprint
 	void LoadInputActionsIfNeeded();
@@ -320,6 +325,7 @@ protected:
 	// State tracking
 	EInputDirection CurrentStickDirection = EInputDirection::Neutral;
 	bool bIsCrouching = false;
+	bool bCrouchFromStick = false; // true when crouch was triggered via Down arrow/stick
 	bool bIsBlocking = false;
 	bool bDashForwardPending = false;
 	float DashTimer = 0.0f;
@@ -347,7 +353,6 @@ protected:
 	float GetUpTime = 1.5f;
 
 	// Generic hit reaction montages (override in BP)
-	// Name: AM_[CharacterName]_HitHigh, AM_[CharacterName]_HitMid, etc.
 	UPROPERTY(EditDefaultsOnly, Category = "Animation")
 	UAnimMontage* HitReactionHigh;
 
@@ -374,4 +379,5 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Animation")
 	UAnimMontage* IntroMontage;
+
 };
