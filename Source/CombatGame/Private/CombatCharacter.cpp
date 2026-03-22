@@ -33,24 +33,33 @@ ACombatCharacter::ACombatCharacter()
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
 
-	// Create hitbox (inactive by default)
+	// Create hitbox (inactive by default) — attached to capsule for reliable positioning
 	HitboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hitbox"));
-	HitboxComponent->SetupAttachment(GetMesh());
-	HitboxComponent->SetBoxExtent(FVector(30.0f, 30.0f, 30.0f));
-	HitboxComponent->SetRelativeLocation(FVector(60.0f, 0.0f, 60.0f));
-	HitboxComponent->SetCollisionProfileName(TEXT("FighterHitbox"));
+	HitboxComponent->SetupAttachment(GetCapsuleComponent());
+	HitboxComponent->SetBoxExtent(FVector(40.0f, 40.0f, 30.0f));
+	HitboxComponent->SetRelativeLocation(FVector(80.0f, 0.0f, 0.0f));
+	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HitboxComponent->SetCollisionObjectType(ECC_WorldDynamic);
+	HitboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	HitboxComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	HitboxComponent->SetGenerateOverlapEvents(true);
 	HitboxComponent->SetActive(false);
-	HitboxComponent->SetHiddenInGame(true);
+	HitboxComponent->SetHiddenInGame(false); // Visible for debugging
+	HitboxComponent->ShapeColor = FColor::Red;
 	HitboxComponent->OnComponentBeginOverlap.AddDynamic(this, &ACombatCharacter::OnHitboxOverlap);
 
-	// Create hurtbox
+	// Create hurtbox — always active, covers the character body
 	HurtboxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("Hurtbox"));
 	HurtboxComponent->SetupAttachment(GetCapsuleComponent());
-	HurtboxComponent->SetBoxExtent(FVector(30.0f, 30.0f, 80.0f));
+	HurtboxComponent->SetBoxExtent(FVector(40.0f, 40.0f, 88.0f));
 	HurtboxComponent->SetRelativeLocation(FVector(0.0f, 0.0f, 0.0f));
-	HurtboxComponent->SetCollisionProfileName(TEXT("FighterHurtbox"));
+	HurtboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	HurtboxComponent->SetCollisionObjectType(ECC_Pawn);
+	HurtboxComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
+	HurtboxComponent->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Overlap);
 	HurtboxComponent->SetGenerateOverlapEvents(true);
+	HurtboxComponent->SetHiddenInGame(false); // Visible for debugging
+	HurtboxComponent->ShapeColor = FColor::Green;
 
 	// Defaults
 	CurrentHealth = MaxHealth;
@@ -512,6 +521,9 @@ void ACombatCharacter::ExecuteAttack(const FAttackData& Attack)
 	CurrentAttackFrame = 0;
 	RemainingAttackFrames = Attack.StartupFrames + Attack.ActiveFrames + Attack.RecoveryFrames;
 
+	UE_LOG(LogCombatGame, Warning, TEXT("[%s] ExecuteAttack: %s (Startup=%d Active=%d Recovery=%d Damage=%.0f)"),
+		*GetName(), *Attack.MoveName.ToString(), Attack.StartupFrames, Attack.ActiveFrames, Attack.RecoveryFrames, Attack.Damage);
+
 	SetFighterState(EFighterState::Attacking);
 	PlayAttackMontage(Attack);
 }
@@ -737,6 +749,11 @@ void ACombatCharacter::ActivateHitbox(FVector RelativeOffset, FVector BoxExtent)
 	HitboxComponent->SetActive(true);
 	HitboxComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	bHitboxActive = true;
+
+	UE_LOG(LogCombatGame, Warning, TEXT("[%s] HITBOX ACTIVATED at offset (%.0f, %.0f, %.0f) extent (%.0f, %.0f, %.0f) facing=%s"),
+		*GetName(), RelativeOffset.X, RelativeOffset.Y, RelativeOffset.Z,
+		BoxExtent.X, BoxExtent.Y, BoxExtent.Z,
+		bIsFacingRight ? TEXT("Right") : TEXT("Left"));
 }
 
 void ACombatCharacter::DeactivateHitbox()
@@ -752,6 +769,10 @@ void ACombatCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComp, AAct
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
 	bool bFromSweep, const FHitResult& SweepResult)
 {
+	UE_LOG(LogCombatGame, Warning, TEXT("[%s] OnHitboxOverlap: OtherActor=%s, OtherComp=%s, bHitboxActive=%d, bHasHit=%d"),
+		*GetName(), OtherActor ? *OtherActor->GetName() : TEXT("NULL"),
+		OtherComp ? *OtherComp->GetName() : TEXT("NULL"), bHitboxActive, bHasHitThisAttack);
+
 	if (!bHitboxActive || bHasHitThisAttack) return;
 
 	ACombatCharacter* OtherFighter = Cast<ACombatCharacter>(OtherActor);
@@ -759,6 +780,9 @@ void ACombatCharacter::OnHitboxOverlap(UPrimitiveComponent* OverlappedComp, AAct
 
 	// Check it's the hurtbox
 	if (OtherComp != OtherFighter->HurtboxComponent) return;
+
+	UE_LOG(LogCombatGame, Warning, TEXT("[%s] HIT %s for %.1f damage!"),
+		*GetName(), *OtherFighter->GetName(), CurrentAttack.Damage);
 
 	bHasHitThisAttack = true;
 	OtherFighter->TakeFighterDamage(CurrentAttack.Damage, CurrentAttack, this);

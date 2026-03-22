@@ -186,6 +186,9 @@ void AFighterAIController::PerformAttack()
 {
 	if (ActionCooldown > 0.0f) return;
 
+	float Dist = GetDistanceToOpponent();
+	UE_LOG(LogCombatGame, Warning, TEXT("[AI] PerformAttack at distance %.0f"), Dist);
+
 	FAttackData Attack = SelectAttack();
 	ControlledFighter->ExecuteAttack(Attack);
 	ActionCooldown = GetReactionTime();

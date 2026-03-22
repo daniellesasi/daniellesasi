@@ -76,11 +76,11 @@ private:
 
 	// Timers
 	float DecisionTimer = 0.0f;
-	float DecisionInterval = 0.3f; // How often AI re-evaluates
+	float DecisionInterval = 0.15f; // How often AI re-evaluates
 	float ActionCooldown = 0.0f;
 
 	// Range thresholds
-	float CloseRange = 150.0f;
-	float MidRange = 300.0f;
+	float CloseRange = 200.0f;
+	float MidRange = 350.0f;
 	float FarRange = 500.0f;
 };
