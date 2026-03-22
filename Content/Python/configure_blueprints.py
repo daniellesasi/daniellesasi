@@ -163,25 +163,21 @@ imc = unreal.load_asset(f"{input_path}/IMC_Fighter")
 if imc:
     set_bp_default(fighter_path, "FighterMappingContext", imc, "IMC_Fighter")
 
-# Try to assign mannequin skeletal mesh
-mannequin_paths = [
-    "/Game/Characters/Mannequins/Meshes/SKM_Manny",
-    "/Game/Characters/Mannequins/Meshes/SKM_Quinn",
-    "/Game/ThirdPerson/Characters/Mannequins/Meshes/SKM_Manny",
-    "/Game/ThirdPerson/Mannequins/Meshes/SKM_Manny",
-    "/Game/Characters/Mannequin/Mesh/SK_Mannequin",
-    "/Engine/Mannequin/Character/Mesh/SK_Mannequin",
+# Try to find TestFighter skeletal mesh (using TestFighter_Skelaton)
+testfighter_mesh_paths = [
+    "/Game/Characters/TestFighter/TestFighter_Skelaton",
+    "/Game/Characters/TestFighter_Skelaton",
+    "/Game/Animations/TestFighter_Skelaton",
+    "/Game/TestFighter_Skelaton",
 ]
-for mesh_path in mannequin_paths:
+for mesh_path in testfighter_mesh_paths:
     mesh = unreal.load_asset(mesh_path)
     if mesh:
-        unreal.log(f"  Found mannequin mesh at: {mesh_path}")
-        # Note: Setting the mesh on the skeletal mesh component requires
-        # opening the BP in the editor. Log instructions instead.
-        unreal.log(f"  MANUAL: Open BP_TestFighter > Mesh component > set to {mesh_path.split('/')[-1]}")
+        unreal.log(f"  Found TestFighter skeleton at: {mesh_path}")
+        unreal.log(f"  MANUAL: Open BP_TestFighter > Mesh component > set skeletal mesh using TestFighter_Skelaton")
         break
 else:
-    unreal.log_warning("  No mannequin mesh found. Open BP_TestFighter and assign a mesh manually.")
+    unreal.log_warning("  TestFighter_Skelaton not found. Open BP_TestFighter and assign your skeletal mesh manually.")
 
 # Set anim blueprint
 abp_path = "/Game/Characters/TestFighter/ABP_TestFighter"
@@ -522,7 +518,7 @@ unreal.log("  [x] Folder structure created")
 unreal.log("  [x] 3 Maps created (MainMenu, CharacterSelect, FightingArena)")
 unreal.log("  [x] 4 Widget Blueprints created + UI elements added")
 unreal.log("  [x] 6 Gameplay Blueprints created")
-unreal.log("  [x] Animation Blueprint created (if skeleton found)")
+unreal.log("  [x] Animation Blueprint created (using TestFighter_Skelaton)")
 unreal.log("  [x] 10 Input Actions + Mapping Context created")
 unreal.log("  [x] Key bindings configured (WASD, attacks, gamepad)")
 unreal.log("  [x] GameMode, HUD, and input actions wired together")
@@ -533,7 +529,7 @@ unreal.log("=" * 60)
 unreal.log("")
 unreal.log("1. OPEN BP_TestFighter:")
 unreal.log("   - Select the Mesh component")
-unreal.log("   - Set Skeletal Mesh = SKM_Manny (or SKM_Quinn)")
+unreal.log("   - Set Skeletal Mesh using TestFighter_Skelaton")
 unreal.log("   - Set Anim Blueprint = ABP_TestFighter")
 unreal.log("")
 unreal.log("2. SET UP ABP_TestFighter (see state machine details above):")
