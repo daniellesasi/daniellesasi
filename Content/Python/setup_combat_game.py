@@ -216,89 +216,51 @@ def create_input_mapping_context(path, name):
     return asset
 
 
-def get_skeleton_from_mesh(mesh):
-    """Extract skeleton from a skeletal mesh asset."""
-    skeleton = None
-    if hasattr(mesh, 'skeleton'):
-        try:
-            skeleton = mesh.get_editor_property("skeleton")
-        except Exception:
-            pass
-    if skeleton is None and hasattr(mesh, 'get_skeleton'):
-        try:
-            skeleton = mesh.get_skeleton()
-        except Exception:
-            pass
-    return skeleton
-
-
-def find_mannequin_skeleton():
-    """Find the UE5 Third Person template mannequin skeleton."""
-    # UE5.7 Third Person template stores mannequins in these locations
+def find_testfighter_skeleton():
+    """Find the TestFighter_Skelaton skeleton asset."""
+    # Search common locations for the user's custom skeleton
     search_paths = [
-        # UE5.4+ Third Person template paths
-        "/Game/Characters/Mannequins/Meshes/SKM_Manny",
-        "/Game/Characters/Mannequins/Meshes/SKM_Quinn",
-        # UE5.0-5.3 paths
-        "/Game/Characters/Mannequin/Mesh/SK_Mannequin",
-        # Alternative UE5.7 paths (various template layouts)
-        "/Game/ThirdPerson/Characters/Mannequins/Meshes/SKM_Manny",
-        "/Game/ThirdPerson/Mannequins/Meshes/SKM_Manny",
-        # Engine content mannequins
-        "/Engine/Mannequin/Character/Mesh/SK_Mannequin",
+        "/Game/Characters/TestFighter/TestFighter_Skelaton",
+        "/Game/Characters/TestFighter_Skelaton",
+        "/Game/Animations/TestFighter_Skelaton",
+        "/Game/TestFighter_Skelaton",
     ]
 
-    for mesh_path in search_paths:
-        mesh = unreal.load_asset(mesh_path)
-        if mesh:
-            skeleton = get_skeleton_from_mesh(mesh)
-            if skeleton:
-                unreal.log(f"  Found mannequin skeleton from: {mesh_path}")
-                return skeleton, mesh_path
+    for skel_path in search_paths:
+        skeleton = unreal.load_asset(skel_path)
+        if skeleton:
+            unreal.log(f"  Found TestFighter_Skelaton at: {skel_path}")
+            return skeleton, skel_path
 
-    # Broader search: scan Content for any skeletal mesh using Asset Registry
-    unreal.log_warning("  Mannequin not found at known paths, searching...")
+    # Broader search via Asset Registry
+    unreal.log_warning("  TestFighter_Skelaton not found at known paths, searching...")
     try:
         ar = unreal.AssetRegistryHelpers.get_asset_registry()
-        skeletal_meshes = None
+        all_assets = None
 
-        # UE5.7+ requires TopLevelAssetPath instead of string for get_assets_by_class
         if hasattr(unreal, 'TopLevelAssetPath'):
             try:
-                class_path = unreal.TopLevelAssetPath("/Script/Engine", "SkeletalMesh")
-                skeletal_meshes = ar.get_assets_by_class(class_path, True)
+                class_path = unreal.TopLevelAssetPath("/Script/Engine", "Skeleton")
+                all_assets = ar.get_assets_by_class(class_path, True)
             except Exception:
                 pass
 
-        # Fallback: use ARFilter for broader compatibility
-        if not skeletal_meshes:
+        if not all_assets:
             try:
                 ar_filter = unreal.ARFilter()
-                ar_filter.class_names = ["SkeletalMesh"]
-                skeletal_meshes = ar.get_assets(ar_filter)
+                ar_filter.class_names = ["Skeleton"]
+                all_assets = ar.get_assets(ar_filter)
             except Exception:
                 pass
 
-        # Last resort: use get_all_assets and filter
-        if not skeletal_meshes:
-            try:
-                all_assets = ar.get_all_assets(True)
-                skeletal_meshes = [a for a in all_assets
-                                   if "SkeletalMesh" in str(a.asset_class_path) or
-                                      "SkeletalMesh" in str(getattr(a, 'asset_class', ''))]
-            except Exception:
-                pass
-
-        if skeletal_meshes:
-            for asset_data in skeletal_meshes:
+        if all_assets:
+            for asset_data in all_assets:
                 asset_name = str(asset_data.asset_name)
-                if "manny" in asset_name.lower() or "quinn" in asset_name.lower() or "mannequin" in asset_name.lower():
-                    mesh = asset_data.get_asset()
-                    if mesh:
-                        skeleton = get_skeleton_from_mesh(mesh)
-                        if skeleton:
-                            unreal.log(f"  Found mannequin via search: {asset_data.package_name}")
-                            return skeleton, str(asset_data.package_name)
+                if "testfighter" in asset_name.lower() or "skelaton" in asset_name.lower():
+                    skeleton = asset_data.get_asset()
+                    if skeleton:
+                        unreal.log(f"  Found TestFighter_Skelaton via search: {asset_data.package_name}")
+                        return skeleton, str(asset_data.package_name)
     except Exception as e:
         unreal.log_warning(f"  Skeleton search error: {e}")
 
@@ -437,15 +399,15 @@ if loaded_classes["CombatCharacter"]:
 
 log_section("Creating Animation Blueprint")
 
-skeleton, mannequin_mesh_path = find_mannequin_skeleton()
+skeleton, skeleton_path = find_testfighter_skeleton()
 
 abp_fighter = None
 if loaded_classes["FighterAnimInstance"] and skeleton:
     abp_fighter = create_anim_blueprint("/Game/Characters/TestFighter", "ABP_TestFighter",
                                         loaded_classes["FighterAnimInstance"], skeleton)
 elif loaded_classes["FighterAnimInstance"]:
-    unreal.log_warning("  No mannequin skeleton found. You'll create ABP_TestFighter manually:")
-    unreal.log_warning("  Right-click > Animation > Anim Blueprint > parent=FighterAnimInstance > pick skeleton")
+    unreal.log_warning("  TestFighter_Skelaton not found. You'll create ABP_TestFighter manually:")
+    unreal.log_warning("  Right-click > Animation > Anim Blueprint > parent=FighterAnimInstance > pick TestFighter_Skelaton")
 else:
     unreal.log_error("  FighterAnimInstance class not loaded, skipping ABP.")
 
@@ -481,6 +443,136 @@ ia_pause = create_input_action(input_path, "IA_Pause")
 
 # Mapping Context
 imc = create_input_mapping_context(input_path, "IMC_Fighter")
+
+# ============================================================================
+# STEP 6b: SET UP KEY BINDINGS IN IMC_Fighter
+# ============================================================================
+
+log_section("Setting Up Key Bindings in IMC_Fighter")
+
+if imc:
+    try:
+        # Reload to make sure we have the latest
+        imc = unreal.load_asset(f"{input_path}/IMC_Fighter")
+
+        # Helper to add a key mapping
+        def add_key_mapping(mapping_context, action, key_name, modifiers=None):
+            """Add a key mapping to the input mapping context."""
+            if not action or not mapping_context:
+                return
+            try:
+                key = unreal.Key(key_name) if isinstance(key_name, str) else key_name
+                mapping = mapping_context.map_key(action, key)
+                if modifiers and mapping:
+                    for mod in modifiers:
+                        mapping.modifiers.append(mod)
+                unreal.log(f"    Mapped {action.get_name()} -> {key_name}")
+            except Exception as e:
+                unreal.log_warning(f"    Could not map {key_name}: {e}")
+
+        # Reload input actions
+        ia_move = unreal.load_asset(f"{input_path}/IA_Move")
+        ia_lp = unreal.load_asset(f"{input_path}/IA_LeftPunch")
+        ia_rp = unreal.load_asset(f"{input_path}/IA_RightPunch")
+        ia_lk = unreal.load_asset(f"{input_path}/IA_LeftKick")
+        ia_rk = unreal.load_asset(f"{input_path}/IA_RightKick")
+        ia_block = unreal.load_asset(f"{input_path}/IA_Block")
+        ia_jump = unreal.load_asset(f"{input_path}/IA_Jump")
+        ia_crouch = unreal.load_asset(f"{input_path}/IA_Crouch")
+        ia_sidestep = unreal.load_asset(f"{input_path}/IA_Sidestep")
+        ia_pause = unreal.load_asset(f"{input_path}/IA_Pause")
+
+        # --- KEYBOARD MAPPINGS ---
+        unreal.log("  Keyboard mappings:")
+
+        # Movement WASD (Axis2D needs modifiers for direction)
+        # W = Forward (Swizzle YXZ so Y axis becomes primary)
+        if ia_move:
+            try:
+                swizzle_mod = unreal.InputModifierSwizzleAxis()
+                negate_mod = unreal.InputModifierNegate()
+
+                # W key - forward (+Y) - needs Swizzle
+                mapping_w = imc.map_key(ia_move, unreal.Key("W"))
+                if mapping_w:
+                    mapping_w.modifiers.append(swizzle_mod)
+                    unreal.log("    Mapped IA_Move -> W (forward)")
+
+                # S key - backward (-Y) - needs Swizzle + Negate
+                mapping_s = imc.map_key(ia_move, unreal.Key("S"))
+                if mapping_s:
+                    mapping_s.modifiers.append(swizzle_mod)
+                    mapping_s.modifiers.append(negate_mod)
+                    unreal.log("    Mapped IA_Move -> S (backward)")
+
+                # A key - left (-X) - needs Negate
+                mapping_a = imc.map_key(ia_move, unreal.Key("A"))
+                if mapping_a:
+                    mapping_a.modifiers.append(negate_mod)
+                    unreal.log("    Mapped IA_Move -> A (left)")
+
+                # D key - right (+X) - no modifier needed
+                mapping_d = imc.map_key(ia_move, unreal.Key("D"))
+                if mapping_d:
+                    unreal.log("    Mapped IA_Move -> D (right)")
+            except Exception as e:
+                unreal.log_warning(f"    WASD mapping error: {e}")
+                # Fallback: map without modifiers
+                add_key_mapping(imc, ia_move, "W")
+                add_key_mapping(imc, ia_move, "A")
+                add_key_mapping(imc, ia_move, "S")
+                add_key_mapping(imc, ia_move, "D")
+
+        # Gamepad left stick for movement
+        try:
+            if ia_move:
+                imc.map_key(ia_move, unreal.Key("Gamepad_LeftStick2D"))
+                unreal.log("    Mapped IA_Move -> Gamepad Left Stick")
+        except Exception:
+            pass
+
+        # Attack keys - keyboard
+        add_key_mapping(imc, ia_lp, "U")
+        add_key_mapping(imc, ia_rp, "I")
+        add_key_mapping(imc, ia_lk, "J")
+        add_key_mapping(imc, ia_rk, "K")
+
+        # Attack keys - gamepad
+        add_key_mapping(imc, ia_lp, "Gamepad_FaceButton_Left")
+        add_key_mapping(imc, ia_rp, "Gamepad_FaceButton_Top")
+        add_key_mapping(imc, ia_lk, "Gamepad_FaceButton_Bottom")
+        add_key_mapping(imc, ia_rk, "Gamepad_FaceButton_Right")
+
+        # Defense & movement - keyboard
+        add_key_mapping(imc, ia_block, "V")
+        add_key_mapping(imc, ia_jump, "SpaceBar")
+        add_key_mapping(imc, ia_crouch, "LeftControl")
+        add_key_mapping(imc, ia_pause, "Escape")
+
+        # Defense & movement - gamepad
+        add_key_mapping(imc, ia_block, "Gamepad_RightShoulder")
+        add_key_mapping(imc, ia_jump, "Gamepad_FaceButton_Bottom")
+        add_key_mapping(imc, ia_pause, "Gamepad_Special_Right")
+
+        # Sidestep - keyboard Q/E
+        if ia_sidestep:
+            try:
+                negate_mod = unreal.InputModifierNegate()
+                mapping_q = imc.map_key(ia_sidestep, unreal.Key("Q"))
+                if mapping_q:
+                    mapping_q.modifiers.append(negate_mod)
+                    unreal.log("    Mapped IA_Sidestep -> Q (left)")
+                add_key_mapping(imc, ia_sidestep, "E")
+            except Exception as e:
+                add_key_mapping(imc, ia_sidestep, "Q")
+                add_key_mapping(imc, ia_sidestep, "E")
+
+        unreal.log("  Key bindings configured!")
+    except Exception as e:
+        unreal.log_warning(f"  Key binding setup error: {e}")
+        unreal.log_warning("  You can set these up manually in IMC_Fighter.")
+else:
+    unreal.log_warning("  IMC_Fighter not available, skipping key bindings.")
 
 # ============================================================================
 # STEP 7: CREATE DATA TABLE
@@ -563,9 +655,11 @@ unreal.log("NEXT: Run Content/Python/configure_blueprints.py")
 unreal.log("      (Tools > Execute Python Script)")
 unreal.log("=" * 60)
 unreal.log("")
-unreal.log("That second script will auto-wire the Blueprints together.")
+unreal.log("That second script will auto-wire the Blueprints together")
+unreal.log("and populate the Widget Blueprints with UI elements.")
+unreal.log("")
 unreal.log("After both scripts, the only MANUAL work left is:")
-unreal.log("  1. Design the UI layouts in each WBP_* widget")
-unreal.log("  2. Set up the Anim Blueprint state machine in ABP_TestFighter")
-unreal.log("  3. Add key bindings in IMC_Fighter (keyboard/gamepad)")
+unreal.log("  1. Assign your skeletal mesh to BP_TestFighter (using TestFighter_Skelaton)")
+unreal.log("  2. Set up ABP_TestFighter anim state machine")
+unreal.log("  3. Style/reposition widgets in each WBP_* (optional)")
 unreal.log("  4. Place BP_FightingArena + BP_FightingCamera in FightingArenaMap")

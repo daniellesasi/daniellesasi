@@ -1,8 +1,8 @@
 // CombatCharacter.h - Base fighter class with full Tekken-style combat
 // To create a character:
 //   1. Create a Blueprint child: BP_[CharacterName] (e.g., BP_Fighter01)
-//   2. Set the Skeletal Mesh in the Mesh component
-//   3. Set the Animation Blueprint: ABP_[CharacterName]
+//   2. Set the Skeletal Mesh in the Mesh component (e.g., using TestFighter_Skelaton)
+//   3. Set the Animation Blueprint: ABP_[CharacterName] (parent: FighterAnimInstance)
 //   4. Fill in the MoveList and ComboRoutes arrays
 //   5. Set hit/hurt box sizes as needed
 #pragma once

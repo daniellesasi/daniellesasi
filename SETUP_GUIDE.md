@@ -71,25 +71,32 @@ After running both scripts, you only need to do these things by hand:
 
 1. Open `Content/Characters/TestFighter/BP_TestFighter`
 2. Select the **Mesh** component in the Components panel
-3. In Details, set **Skeletal Mesh Asset** = `SKM_Manny` (or `SKM_Quinn`)
+3. In Details, set **Skeletal Mesh Asset** using your `TestFighter_Skelaton` skeleton
 4. Set **Anim Class** = `ABP_TestFighter`
 
 ### 6b. Set Up ABP_TestFighter (Animation Blueprint)
 
-1. Open `Content/Characters/TestFighter/ABP_TestFighter`
+1. Open `Content/Characters/TestFighter/ABP_TestFighter` (created with `TestFighter_Skelaton`)
 2. In the **AnimGraph**, add a **State Machine** named "Main"
-3. Add these states (use the template's existing animations as placeholders):
+3. Add these 10 states:
 
-| State | Animation | Transition In |
-|-------|-----------|--------------|
-| Idle | Template idle | Default entry |
-| Walking | Template walk | bIsMoving = true |
-| Crouching | Template crouch (or idle) | bIsCrouching = true |
-| Jumping | Template jump | bIsJumping = true |
-| Blocking | Template idle | bIsBlocking = true |
+| State | Animation | Looping | Transition In |
+|-------|-----------|---------|--------------|
+| Idle | Anim_Idle | Yes | Default entry |
+| Walking | Anim_Walk | Yes | bIsMoving = true |
+| Jumping | Anim_Jump | No | bIsJumping = true |
+| Crouching | Anim_Crouch | Yes | bIsCrouching = true |
+| Blocking | Anim_Block | Yes | bIsBlocking = true |
+| Attacking | Anim_Attack | No | bIsAttacking = true |
+| HitStun | Anim_HitStun | No | bIsInHitStun = true |
+| KnockedDown | Anim_KnockDown | No | bIsKnockedDown = true |
+| Launched | Anim_Launched | No | bIsLaunched = true |
+| Dead | Anim_Death | No | bIsDead = true |
 
-4. Add a **Default Slot** node after the state machine (for attack montages)
-5. Connect: State Machine > Default Slot > Output Pose
+4. Wire transitions back to **Idle** when each bool becomes false (except Dead)
+5. Add cross-state transitions (e.g. any state -> HitStun, any state -> Dead)
+6. Add a **Default Slot** node after the state machine (for attack montages)
+7. Connect: State Machine > Default Slot > Output Pose
 
 ### 6c. Set Up Key Bindings (IMC_Fighter)
 
@@ -234,11 +241,11 @@ Open each widget and add the required UI elements. The C++ code finds them by na
 
 ## Adding More Characters Later
 
-1. Get a skeletal mesh (import FBX or use Marketplace assets)
+1. Get a skeletal mesh (import FBX or use Marketplace assets) with its own Skeleton
 2. Create a folder: `Content/Characters/[Name]/`
-3. Create Animation Blueprint: `ABP_[Name]` (parent: FighterAnimInstance)
+3. Create Animation Blueprint: `ABP_[Name]` (parent: FighterAnimInstance, using character's Skeleton)
 4. Create Character Blueprint: `BP_[Name]` (parent: CombatCharacter)
-5. Set up the mesh, animations, and move list on the BP
+5. Set up the mesh, animations (following the Anim_* naming convention), and move list on the BP
 6. Add a row to `DT_Characters`
 
 See the animation naming conventions at the top of `Source/CombatGame/Public/FighterAnimInstance.h`
