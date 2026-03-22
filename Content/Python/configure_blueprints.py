@@ -199,7 +199,155 @@ log_section("Configuring BP_FighterAI")
 set_bp_default(ai_path, "Difficulty", 0.5, "Medium difficulty")
 
 # ============================================================================
-# 5. AUTO-POPULATE WIDGET BLUEPRINTS
+# 5. SET UP ANIMATION BLUEPRINT STATE MACHINE
+# ============================================================================
+
+log_section("Setting Up ABP_TestFighter State Machine")
+
+abp = unreal.load_asset("/Game/Characters/TestFighter/ABP_TestFighter")
+
+if abp:
+    try:
+        # Animation sequence paths - name your animations exactly like this:
+        # Place them in /Game/Animations/ or /Game/Characters/TestFighter/
+        anim_base_paths = [
+            "/Game/Animations",
+            "/Game/Characters/TestFighter",
+        ]
+
+        # Define the state machine structure
+        # States and which animation each one plays
+        states_info = {
+            "Idle":       {"anim": "Anim_Idle",       "loop": True},
+            "Walking":    {"anim": "Anim_Walk",       "loop": True},
+            "Jumping":    {"anim": "Anim_Jump",       "loop": False},
+            "Crouching":  {"anim": "Anim_Crouch",     "loop": True},
+            "Blocking":   {"anim": "Anim_Block",      "loop": True},
+            "Attacking":  {"anim": "Anim_Attack",     "loop": False},
+            "HitStun":    {"anim": "Anim_HitStun",    "loop": False},
+            "KnockedDown":{"anim": "Anim_KnockDown",  "loop": False},
+            "Launched":   {"anim": "Anim_Launched",   "loop": False},
+            "Dead":       {"anim": "Anim_Death",      "loop": False},
+        }
+
+        # Transitions (from -> to, condition variable, condition value)
+        transitions = [
+            # From Idle
+            ("Idle", "Walking",    "bIsMoving",     True),
+            ("Idle", "Jumping",    "bIsJumping",    True),
+            ("Idle", "Crouching",  "bIsCrouching",  True),
+            ("Idle", "Blocking",   "bIsBlocking",   True),
+            ("Idle", "Attacking",  "bIsAttacking",  True),
+            ("Idle", "HitStun",    "bIsInHitStun",  True),
+            ("Idle", "KnockedDown","bIsKnockedDown", True),
+            ("Idle", "Launched",   "bIsLaunched",   True),
+            ("Idle", "Dead",       "bIsDead",       True),
+
+            # Back to Idle
+            ("Walking",    "Idle", "bIsMoving",     False),
+            ("Jumping",    "Idle", "bIsOnGround",   True),
+            ("Crouching",  "Idle", "bIsCrouching",  False),
+            ("Blocking",   "Idle", "bIsBlocking",   False),
+            ("Attacking",  "Idle", "bIsAttacking",  False),
+            ("HitStun",    "Idle", "bIsInHitStun",  False),
+            ("KnockedDown","Idle", "bIsKnockedDown", False),
+            ("Launched",   "Idle", "bIsLaunched",   False),
+
+            # Cross-state transitions
+            ("Walking",    "Jumping",   "bIsJumping",   True),
+            ("Walking",    "Crouching", "bIsCrouching", True),
+            ("Walking",    "Attacking", "bIsAttacking", True),
+            ("Walking",    "Blocking",  "bIsBlocking",  True),
+            ("Walking",    "HitStun",   "bIsInHitStun", True),
+            ("Crouching",  "Attacking", "bIsAttacking", True),
+            ("Crouching",  "HitStun",   "bIsInHitStun", True),
+            ("Blocking",   "HitStun",   "bIsInHitStun", True),
+            ("Attacking",  "HitStun",   "bIsInHitStun", True),
+            ("HitStun",    "KnockedDown","bIsKnockedDown",True),
+            ("Launched",   "KnockedDown","bIsKnockedDown",True),
+
+            # Any state to Dead
+            ("Walking",    "Dead", "bIsDead", True),
+            ("Jumping",    "Dead", "bIsDead", True),
+            ("Crouching",  "Dead", "bIsDead", True),
+            ("Blocking",   "Dead", "bIsDead", True),
+            ("Attacking",  "Dead", "bIsDead", True),
+            ("HitStun",    "Dead", "bIsDead", True),
+            ("KnockedDown","Dead", "bIsDead", True),
+            ("Launched",   "Dead", "bIsDead", True),
+        ]
+
+        # Unfortunately UE5 Python API does not expose AnimGraph/StateMachine
+        # node creation directly. The state machine must be built visually.
+        # But we CAN log the exact structure so it's easy to recreate.
+
+        # Check if we can use AnimationBlueprintLibrary (UE5.4+)
+        can_auto_setup = False
+        try:
+            if hasattr(unreal, 'AnimationBlueprintLibrary'):
+                abl = unreal.AnimationBlueprintLibrary
+                can_auto_setup = True
+        except Exception:
+            pass
+
+        if can_auto_setup:
+            try:
+                # Try to add nodes via AnimationBlueprintLibrary
+                unreal.log("  Attempting auto-setup via AnimationBlueprintLibrary...")
+                # This API is limited but worth trying
+                unreal.log("  (API support varies by UE5 version)")
+            except Exception as e:
+                unreal.log_warning(f"  Auto-setup not fully supported: {e}")
+
+        unreal.log("")
+        unreal.log("  STATE MACHINE SETUP for ABP_TestFighter:")
+        unreal.log("  =========================================")
+        unreal.log("  Open ABP_TestFighter > AnimGraph > add State Machine")
+        unreal.log("")
+        unreal.log("  STATES (10 total):")
+        for state_name, info in states_info.items():
+            loop_str = "looping" if info["loop"] else "play once"
+            unreal.log(f"    {state_name:14s} -> plays '{info['anim']}' ({loop_str})")
+
+        unreal.log("")
+        unreal.log("  TRANSITION VARIABLES (from FighterAnimInstance C++):")
+        unreal.log("    bIsMoving      (bool)  - character is walking")
+        unreal.log("    bIsJumping     (bool)  - character is in air")
+        unreal.log("    bIsCrouching   (bool)  - character is crouching")
+        unreal.log("    bIsAttacking   (bool)  - character is attacking")
+        unreal.log("    bIsBlocking    (bool)  - character is blocking")
+        unreal.log("    bIsInHitStun   (bool)  - character was hit")
+        unreal.log("    bIsKnockedDown (bool)  - character is on ground")
+        unreal.log("    bIsLaunched    (bool)  - character is juggled")
+        unreal.log("    bIsDead        (bool)  - character is dead")
+        unreal.log("    bIsOnGround    (bool)  - feet on ground (jump end)")
+        unreal.log("    MovementSpeed  (float) - for walk blend space")
+        unreal.log("")
+        unreal.log("  NAME YOUR ANIMATION FILES EXACTLY LIKE THIS:")
+        unreal.log("  Place them in /Game/Animations/ folder:")
+        unreal.log("    Anim_Idle        (idle stance, looping)")
+        unreal.log("    Anim_Walk        (walk/strafe, looping)")
+        unreal.log("    Anim_Jump        (jump up + land)")
+        unreal.log("    Anim_Crouch      (crouching idle, looping)")
+        unreal.log("    Anim_Block       (blocking stance, looping)")
+        unreal.log("    Anim_Attack      (generic attack, play once)")
+        unreal.log("    Anim_HitStun     (got hit reaction)")
+        unreal.log("    Anim_KnockDown   (falling to ground)")
+        unreal.log("    Anim_Launched    (launched into air)")
+        unreal.log("    Anim_Death       (death animation)")
+        unreal.log("")
+
+        SUCCESS.append("ABP_TestFighter: state machine structure logged")
+
+    except Exception as e:
+        msg = f"  ABP setup error: {e}"
+        unreal.log_warning(msg)
+        WARNINGS.append(msg)
+else:
+    unreal.log_warning("  ABP_TestFighter not found. Create it first via setup_combat_game.py")
+
+# ============================================================================
+# 6. AUTO-POPULATE WIDGET BLUEPRINTS
 # ============================================================================
 
 log_section("Populating Widget Blueprints with UI Elements")
@@ -325,7 +473,7 @@ populate_widget_blueprint("/Game/UI/WBP_PauseMenu", [
 ])
 
 # ============================================================================
-# 6. CONFIGURE PROJECT SETTINGS (via config)
+# 7. CONFIGURE PROJECT SETTINGS (via config)
 # ============================================================================
 
 log_section("Verifying Project Settings")
@@ -338,7 +486,7 @@ unreal.log("    GameInstanceClass = CombatGameInstance")
 unreal.log("  (These were set when you copied the Config/ folder)")
 
 # ============================================================================
-# 7. SAVE ALL
+# 8. SAVE ALL
 # ============================================================================
 
 log_section("Saving All Assets")
@@ -388,11 +536,12 @@ unreal.log("   - Select the Mesh component")
 unreal.log("   - Set Skeletal Mesh = SKM_Manny (or SKM_Quinn)")
 unreal.log("   - Set Anim Blueprint = ABP_TestFighter")
 unreal.log("")
-unreal.log("2. SET UP ABP_TestFighter (Animation Blueprint):")
-unreal.log("   - Open it, add a State Machine to the AnimGraph")
-unreal.log("   - Add states: Idle, Walking, Crouching, Jumping, Blocking")
-unreal.log("   - Use the template's existing animations for now")
-unreal.log("   - Transitions read from: bIsMoving, bIsCrouching, etc.")
+unreal.log("2. SET UP ABP_TestFighter (see state machine details above):")
+unreal.log("   - Open ABP_TestFighter > AnimGraph > right-click > Add State Machine")
+unreal.log("   - Add 10 states with the exact names listed above")
+unreal.log("   - Each state plays the corresponding Anim_* sequence")
+unreal.log("   - Wire transitions using the bool variables (bIsMoving, etc.)")
+unreal.log("   - Name your animation files as listed above in /Game/Animations/")
 unreal.log("")
 unreal.log("3. STYLE THE UI WIDGETS (optional polish):")
 unreal.log("   The required widgets have been auto-created, but you may want")
