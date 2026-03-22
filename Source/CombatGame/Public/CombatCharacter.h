@@ -296,6 +296,9 @@ protected:
 	void HandleRightKick(const FInputActionValue& Value);
 	void HandleSidestep(const FInputActionValue& Value);
 
+	// Auto-load input assets from /Game/Input/ when not set in Blueprint
+	void LoadInputActionsIfNeeded();
+
 	// Internal helpers
 	void ProcessAttackButton(EAttackButton Button);
 	void BufferInput(EInputDirection Dir, EAttackButton Button);

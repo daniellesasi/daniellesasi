@@ -6,6 +6,8 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "InputAction.h"
+#include "InputMappingContext.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
 #include "NiagaraSystem.h"
@@ -60,6 +62,9 @@ void ACombatCharacter::BeginPlay()
 
 	CurrentHealth = MaxHealth;
 
+	// Auto-load input assets if not set via Blueprint defaults
+	LoadInputActionsIfNeeded();
+
 	// Add input mapping context (fallback if controller didn't set it)
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
@@ -72,6 +77,38 @@ void ACombatCharacter::BeginPlay()
 			}
 		}
 	}
+}
+
+void ACombatCharacter::LoadInputActionsIfNeeded()
+{
+	auto TryLoad = [](UInputAction*& Action, const TCHAR* Path)
+	{
+		if (!Action)
+		{
+			Action = Cast<UInputAction>(StaticLoadObject(UInputAction::StaticClass(), nullptr, Path));
+		}
+	};
+
+	if (!FighterMappingContext)
+	{
+		FighterMappingContext = Cast<UInputMappingContext>(
+			StaticLoadObject(UInputMappingContext::StaticClass(), nullptr,
+				TEXT("/Game/Input/IMC_Fighter.IMC_Fighter")));
+	}
+
+	TryLoad(MoveAction, TEXT("/Game/Input/IA_Move.IA_Move"));
+	TryLoad(JumpAction, TEXT("/Game/Input/IA_Jump.IA_Jump"));
+	TryLoad(CrouchAction, TEXT("/Game/Input/IA_Crouch.IA_Crouch"));
+	TryLoad(BlockAction, TEXT("/Game/Input/IA_Block.IA_Block"));
+	TryLoad(LeftPunchAction, TEXT("/Game/Input/IA_LeftPunch.IA_LeftPunch"));
+	TryLoad(RightPunchAction, TEXT("/Game/Input/IA_RightPunch.IA_RightPunch"));
+	TryLoad(LeftKickAction, TEXT("/Game/Input/IA_LeftKick.IA_LeftKick"));
+	TryLoad(RightKickAction, TEXT("/Game/Input/IA_RightKick.IA_RightKick"));
+	TryLoad(SidestepAction, TEXT("/Game/Input/IA_Sidestep.IA_Sidestep"));
+
+	UE_LOG(LogCombatGame, Log, TEXT("CombatCharacter: MoveAction=%s, IMC=%s"),
+		MoveAction ? TEXT("OK") : TEXT("NULL"),
+		FighterMappingContext ? TEXT("OK") : TEXT("NULL"));
 }
 
 void ACombatCharacter::Tick(float DeltaTime)
@@ -105,6 +142,11 @@ void ACombatCharacter::Tick(float DeltaTime)
 void ACombatCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+
+	// Must load input actions here, not just in BeginPlay, because
+	// SetupPlayerInputComponent runs during Possess() which can happen
+	// before BeginPlay when the actor is spawned inside another BeginPlay
+	LoadInputActionsIfNeeded();
 
 	UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent);
 	if (!EIC) return;
@@ -667,7 +709,10 @@ void ACombatCharacter::HandleMove(const FInputActionValue& Value)
 
 		if (CurrentState != EFighterState::Dashing && CurrentState != EFighterState::BackDashing)
 		{
-			AddMovementInput(MoveDir, MoveSpeed * GetWorld()->GetDeltaSeconds());
+			// Set the walk speed based on direction, then use scale 1.0
+			// (AddMovementInput ScaleValue is 0-1, actual speed comes from MaxWalkSpeed)
+			GetCharacterMovement()->MaxWalkSpeed = MoveSpeed;
+			AddMovementInput(MoveDir, 1.0f);
 			if (!bIsCrouching && CurrentState != EFighterState::Jumping)
 			{
 				SetFighterState(EFighterState::Walking);
