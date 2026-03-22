@@ -24,6 +24,9 @@ void ACombatPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 
+	UE_LOG(LogCombatGame, Warning, TEXT("CombatPlayerController::BeginPlay. bMappingContextAdded=%d, GetPawn=%s, IsLocalController=%d"),
+		bMappingContextAdded, GetPawn() ? *GetPawn()->GetName() : TEXT("NULL"), IsLocalController());
+
 	// The Enhanced Input subsystem is guaranteed ready by BeginPlay.
 	// OnPossess may have been called earlier (during SpawnFighters) when the
 	// subsystem wasn't ready yet, so retry adding the mapping context here.
@@ -36,6 +39,7 @@ void ACombatPlayerController::BeginPlay()
 void ACombatPlayerController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
+	UE_LOG(LogCombatGame, Warning, TEXT("CombatPlayerController::OnPossess called. Pawn=%s"), InPawn ? *InPawn->GetName() : TEXT("NULL"));
 	AddFighterMappingContext();
 }
 
@@ -48,6 +52,9 @@ void ACombatPlayerController::OnUnPossess()
 
 void ACombatPlayerController::AddFighterMappingContext()
 {
+	UE_LOG(LogCombatGame, Warning, TEXT("AddFighterMappingContext: ENTERED. IsLocalController=%d, GetLocalPlayer=%s"),
+		IsLocalController(), GetLocalPlayer() ? TEXT("Valid") : TEXT("NULL"));
+
 	// First try the mapping context set on the controller itself
 	UInputMappingContext* IMC = FighterMappingContext;
 
@@ -65,6 +72,8 @@ void ACombatPlayerController::AddFighterMappingContext()
 		return;
 	}
 
+	UE_LOG(LogCombatGame, Warning, TEXT("AddFighterMappingContext: IMC found = %s"), *IMC->GetName());
+
 	if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
 		ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(GetLocalPlayer()))
 	{
@@ -75,7 +84,8 @@ void ACombatPlayerController::AddFighterMappingContext()
 	}
 	else
 	{
-		UE_LOG(LogCombatGame, Warning, TEXT("CombatPlayerController: EnhancedInput subsystem not ready yet"));
+		UE_LOG(LogCombatGame, Warning, TEXT("CombatPlayerController: EnhancedInput subsystem not ready! GetLocalPlayer=%s"),
+			GetLocalPlayer() ? TEXT("Valid") : TEXT("NULL"));
 	}
 }
 
