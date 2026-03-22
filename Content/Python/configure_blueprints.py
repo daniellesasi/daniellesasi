@@ -167,7 +167,9 @@ mannequin_paths = [
     "/Game/Characters/Mannequins/Meshes/SKM_Manny",
     "/Game/Characters/Mannequins/Meshes/SKM_Quinn",
     "/Game/ThirdPerson/Characters/Mannequins/Meshes/SKM_Manny",
+    "/Game/ThirdPerson/Mannequins/Meshes/SKM_Manny",
     "/Game/Characters/Mannequin/Mesh/SK_Mannequin",
+    "/Engine/Mannequin/Character/Mesh/SK_Mannequin",
 ]
 for mesh_path in mannequin_paths:
     mesh = unreal.load_asset(mesh_path)
