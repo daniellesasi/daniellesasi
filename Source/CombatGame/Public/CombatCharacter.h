@@ -352,32 +352,72 @@ protected:
 	FTimerHandle GetUpTimerHandle;
 	float GetUpTime = 1.5f;
 
+	// ========================================================================
+	// STATE ANIMATIONS - loaded automatically by name convention
+	// Place in /Game/Animations/ as: Anim_Idle, Anim_Walk, etc.
+	// These are played directly from C++ - NO state machine needed in ABP.
+	// ========================================================================
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|States")
+	UAnimSequence* IdleAnim;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|States")
+	UAnimSequence* WalkAnim;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|States")
+	UAnimSequence* JumpAnim;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|States")
+	UAnimSequence* CrouchAnim;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|States")
+	UAnimSequence* BlockAnim;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|States")
+	UAnimSequence* AttackAnim;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|States")
+	UAnimSequence* HitStunAnim;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|States")
+	UAnimSequence* KnockDownAnim;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|States")
+	UAnimSequence* LaunchedAnim;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|States")
+	UAnimSequence* DeathAnim;
+
 	// Generic hit reaction montages (override in BP)
-	// Name: AM_[CharacterName]_HitHigh, AM_[CharacterName]_HitMid, etc.
-	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Reactions")
 	UAnimMontage* HitReactionHigh;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Reactions")
 	UAnimMontage* HitReactionMid;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Reactions")
 	UAnimMontage* HitReactionLow;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Reactions")
 	UAnimMontage* BlockReactionMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Reactions")
 	UAnimMontage* KnockdownMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Reactions")
 	UAnimMontage* GetUpMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Reactions")
 	UAnimMontage* LaunchMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Reactions")
 	UAnimMontage* VictoryMontage;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UPROPERTY(EditDefaultsOnly, Category = "Animation|Reactions")
 	UAnimMontage* IntroMontage;
+
+	// Helper to load state anims from /Game/Animations/
+	void LoadStateAnimations();
+	// Play the right animation for the current state
+	void PlayStateAnimation(EFighterState State);
 };
